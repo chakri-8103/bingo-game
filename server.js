@@ -14,12 +14,14 @@ const players = {};         // { socketId: { name, color, isSpectator, sessionKe
 const selectedNumbers = []; // { number, playerName, playerColor, timestamp }
 const turnOrder = [];       // [socketId, ...]
 let currentTurnIndex = 0;
-let turnBased = false;
 let gameStarted = false;
 
-// Session store — persists across disconnects
-// { sessionKey: { name, color, isSpectator, calledNumbers[] } }
+// Session store
 const sessions = {};
+
+// Turn timer
+let turnTimer = null;
+const TURN_TIMEOUT_MS = 60 * 1000; // 1 minute
 
 const PLAYER_COLORS = [
   '#FF6B6B', '#4ECDC4', '#FFE66D', '#A29BFE',
@@ -35,7 +37,7 @@ function getNextColor() {
 }
 
 function getCurrentTurnPlayer() {
-  if (!turnBased || turnOrder.length === 0) return null;
+  if (turnOrder.length === 0) return null;
   return turnOrder[currentTurnIndex % turnOrder.length];
 }
 
@@ -45,45 +47,74 @@ function broadcastState() {
     name: p.name,
     color: p.color,
     isSpectator: p.isSpectator,
-    isCurrentTurn: turnBased && !p.isSpectator && getCurrentTurnPlayer() === id
+    isCurrentTurn: !p.isSpectator && getCurrentTurnPlayer() === id
   }));
+
+  const activePlayerCount = playerList.filter(p => !p.isSpectator).length;
 
   io.emit('state_update', {
     selectedNumbers,
     players: playerList,
     playerCount: playerList.length,
-    turnBased,
-    currentTurnPlayerId: turnBased ? getCurrentTurnPlayer() : null,
+    activePlayerCount,
+    currentTurnPlayerId: activePlayerCount >= 2 ? getCurrentTurnPlayer() : null,
     gameStarted
   });
 }
 
-// ── Build a unique session key from name (lowercased, trimmed)
 function makeSessionKey(name) {
   return name.trim().toLowerCase().replace(/\s+/g, '_');
 }
 
+// ── TURN TIMER: auto-reset if player is AFK for 1 min
+function startTurnTimer() {
+  clearTurnTimer();
+  const currentId = getCurrentTurnPlayer();
+  if (!currentId) return;
+  const player = players[currentId];
+  if (!player) return;
+
+  turnTimer = setTimeout(() => {
+    const afkPlayer = players[currentId];
+    const afkName = afkPlayer ? afkPlayer.name : 'A player';
+
+    console.log(`⏰ Turn timeout for ${afkName} — auto-resetting game`);
+
+    // Notify all clients
+    io.emit('turn_timeout', { playerName: afkName });
+
+    // Reset game state
+    selectedNumbers.length = 0;
+    currentTurnIndex = 0;
+    gameStarted = false;
+
+    // Re-admit all spectators
+    turnOrder.length = 0;
+    Object.entries(players).forEach(([id, p]) => {
+      p.isSpectator = false;
+      turnOrder.push(id);
+    });
+
+    Object.values(sessions).forEach(s => {
+      s.isSpectator = false;
+      s.calledNumbers = [];
+    });
+
+    io.emit('game_reset', { by: `auto (${afkName} timed out)` });
+    broadcastState();
+  }, TURN_TIMEOUT_MS);
+}
+
+function clearTurnTimer() {
+  if (turnTimer) {
+    clearTimeout(turnTimer);
+    turnTimer = null;
+  }
+}
+
 io.on('connection', (socket) => {
 
-  // ── CHECK: does a session exist for this name? (called before join)
-  socket.on('check_session', ({ name, sessionKey }) => {
-    const key = sessionKey || makeSessionKey(name);
-    const session = sessions[key];
-    if (session) {
-      // Session exists — tell client they can rejoin
-      socket.emit('session_found', {
-        name: session.name,
-        color: session.color,
-        isSpectator: session.isSpectator,
-        sessionKey: key,
-        calledNumbers: session.calledNumbers || []
-      });
-    } else {
-      socket.emit('session_not_found', { name });
-    }
-  });
-
-  // ── JOIN (new player or rejoin)
+  // ── JOIN
   socket.on('join', ({ name, sessionKey }) => {
     const trimmed = name.trim().slice(0, 20) || 'Anonymous';
     const key = sessionKey || makeSessionKey(trimmed);
@@ -92,27 +123,22 @@ io.on('connection', (socket) => {
     let color, isSpectator, isRejoin = false;
 
     if (existingSession) {
-      // ── REJOIN: restore their previous session
       color = existingSession.color;
       isSpectator = existingSession.isSpectator;
       isRejoin = true;
-      console.log(`🔄 ${trimmed} REJOINED (session restored)`);
+      console.log(`🔄 ${trimmed} REJOINED`);
     } else {
-      // ── NEW PLAYER
       color = getNextColor();
-      isSpectator = gameStarted; // spectator if game already in progress
+      isSpectator = gameStarted;
       console.log(`✅ ${trimmed} joined${isSpectator ? ' (spectator)' : ''}`);
     }
 
-    // Register in active players
     players[socket.id] = { name: trimmed, color, isSpectator, sessionKey: key };
 
-    // Add to turn order only if active player and not already present
     if (!isSpectator && !turnOrder.includes(socket.id)) {
       turnOrder.push(socket.id);
     }
 
-    // Save / update session
     sessions[key] = {
       name: trimmed,
       color,
@@ -153,8 +179,14 @@ io.on('connection', (socket) => {
       socket.emit('error_msg', { message: `⚠ Number ${num} is already called!` });
       return;
     }
-    if (turnBased && getCurrentTurnPlayer() !== socket.id) {
+    if (getCurrentTurnPlayer() !== socket.id) {
       socket.emit('error_msg', { message: "⏳ It's not your turn yet!" });
+      return;
+    }
+
+    const activeCount = Object.values(players).filter(p => !p.isSpectator).length;
+    if (activeCount < 2) {
+      socket.emit('error_msg', { message: '⏳ Waiting for another player to join!' });
       return;
     }
 
@@ -168,16 +200,17 @@ io.on('connection', (socket) => {
     };
     selectedNumbers.push(entry);
 
-    // Track called numbers per session
     if (player.sessionKey && sessions[player.sessionKey]) {
       sessions[player.sessionKey].calledNumbers =
         sessions[player.sessionKey].calledNumbers || [];
       sessions[player.sessionKey].calledNumbers.push(num);
     }
 
-    if (turnBased) {
-      currentTurnIndex = (currentTurnIndex + 1) % turnOrder.length;
-    }
+    // Advance turn
+    currentTurnIndex = (currentTurnIndex + 1) % turnOrder.length;
+
+    // Restart timer for the next player's turn
+    startTurnTimer();
 
     io.emit('number_called', {
       number: num,
@@ -188,18 +221,11 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
-  // ── TOGGLE TURN-BASED
-  socket.on('toggle_turn_based', () => {
-    turnBased = !turnBased;
-    currentTurnIndex = 0;
-    io.emit('turn_mode_changed', { turnBased });
-    broadcastState();
-  });
-
   // ── BINGO CLAIMED
   socket.on('bingo_claimed', ({ playerName }) => {
     const player = players[socket.id];
     if (!player) return;
+    clearTurnTimer();
     io.emit('bingo_announced', { playerName: player.name, playerColor: player.color });
   });
 
@@ -208,18 +234,17 @@ io.on('connection', (socket) => {
     const player = players[socket.id];
     if (!player) return;
 
+    clearTurnTimer();
     selectedNumbers.length = 0;
     currentTurnIndex = 0;
     gameStarted = false;
 
-    // Re-admit all spectators as full players
     turnOrder.length = 0;
     Object.entries(players).forEach(([id, p]) => {
       p.isSpectator = false;
       turnOrder.push(id);
     });
 
-    // Clear calledNumbers from all sessions
     Object.values(sessions).forEach(s => {
       s.isSpectator = false;
       s.calledNumbers = [];
@@ -236,10 +261,10 @@ io.on('connection', (socket) => {
     if (player) {
       io.emit('player_left', { name: player.name, color: player.color });
 
-      // Keep session alive for rejoin — just remove from active players
+      const wasCurrentTurn = getCurrentTurnPlayer() === socket.id;
+
       if (player.sessionKey && sessions[player.sessionKey]) {
         sessions[player.sessionKey].socketId = null;
-        // Auto-cleanup session after 30 minutes of inactivity
         setTimeout(() => {
           const s = sessions[player.sessionKey];
           if (s && s.socketId === null) {
@@ -254,15 +279,26 @@ io.on('connection', (socket) => {
       if (idx !== -1) {
         turnOrder.splice(idx, 1);
         if (currentTurnIndex >= turnOrder.length && turnOrder.length > 0) {
-          currentTurnIndex = 0;
+          currentTurnIndex = currentTurnIndex % turnOrder.length;
         }
       }
 
       const activePlayers = Object.values(players).filter(p => !p.isSpectator);
-      if (activePlayers.length === 0) gameStarted = false;
+      if (activePlayers.length === 0) {
+        gameStarted = false;
+        clearTurnTimer();
+      } else if (activePlayers.length < 2) {
+        // Not enough players to continue — stop timer, don't start new one
+        clearTurnTimer();
+        broadcastState();
+      } else if (wasCurrentTurn) {
+        // Disconnected player had the turn — restart timer for next player
+        startTurnTimer();
+        broadcastState();
+      }
 
       broadcastState();
-      console.log(`👋 ${player.name} disconnected (session kept for 30min)`);
+      console.log(`👋 ${player.name} disconnected`);
     }
   });
 });

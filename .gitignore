@@ -1,0 +1,34 @@
+# Node modules (very important)
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+
+# Build folders (if any future use)
+dist/
+build/
+
+# Cache
+.cache/
+
+# Optional: VS Code settings
+.vscode/
+
+# Optional: Mac system files
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.tmp
+*.temp
