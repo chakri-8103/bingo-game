@@ -9,12 +9,19 @@
   <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Syne:wght@400;600;700;800&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   <style>
     /* ═══════════════════════════════════
-       BASE VARIABLES — PLAYER MODE
+       BASE VARIABLES — LIGHT MODE ONLY
     ═══════════════════════════════════ */
     :root {
-      --bg:#F5F4F0; --surface:#FFFFFF; --surface2:#F0EEE8; --border:#DDD9CF;
-      --accent:#E05C2A; --accent2:#2563EB; --accent3:#059669; --accent-lt:#FDE8DF;
-      --text:#1A1714; --text-dim:#8C8377;
+      --bg:#F5F4F0;
+      --surface:#FFFFFF;
+      --surface2:#F0EEE8;
+      --border:#DDD9CF;
+      --accent:#E05C2A;
+      --accent2:#2563EB;
+      --accent3:#059669;
+      --accent-lt:#FDE8DF;
+      --text:#1A1714;
+      --text-dim:#8C8377;
       --font-display:'Black Han Sans',sans-serif;
       --font-body:'Syne',sans-serif;
       --font-mono:'Orbitron',sans-serif;
@@ -23,37 +30,20 @@
       --shadow-lg:0 8px 40px rgba(0,0,0,0.13);
     }
 
-    /* ═══════════════════════════════════
-       SPECTATOR THEME — DARK BROADCAST
-    ═══════════════════════════════════ */
-    body.spec {
-      --bg: #080c14;
-      --surface: #0f1923;
-      --surface2: #141f2e;
-      --border: #1e3050;
-      --accent: #f59e0b;
-      --accent2: #06b6d4;
-      --accent3: #22d3ee;
-      --accent-lt: rgba(245,158,11,0.1);
-      --text: #cbd5e1;
-      --text-dim: #475569;
-    }
-    body.spec {
-      background: #080c14 !important;
-      background-image:
-        radial-gradient(ellipse at 15% 85%, rgba(6,182,212,0.07) 0%, transparent 45%),
-        radial-gradient(ellipse at 85% 10%, rgba(245,158,11,0.06) 0%, transparent 45%) !important;
-    }
-    body.spec::after {
-      content:''; position:fixed; inset:0; pointer-events:none; z-index:9998;
-      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
-    }
-
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     html,body{height:100%;overflow-x:hidden;}
-    body{background:var(--bg);color:var(--text);font-family:var(--font-body);
-      background-image:radial-gradient(ellipse at 10% 80%,rgba(224,92,42,0.06) 0%,transparent 50%),
-        radial-gradient(ellipse at 90% 10%,rgba(37,99,235,0.05) 0%,transparent 50%);}
+    body{
+      background:var(--bg);
+      color:var(--text);
+      font-family:var(--font-body);
+      background-image:
+        radial-gradient(ellipse at 10% 80%,rgba(224,92,42,0.06) 0%,transparent 50%),
+        radial-gradient(ellipse at 90% 10%,rgba(37,99,235,0.05) 0%,transparent 50%);
+      -webkit-user-select:none;
+      -moz-user-select:none;
+      -ms-user-select:none;
+      user-select:none;
+    }
     .hidden{display:none!important;}
 
     /* ══════════════════════════════
@@ -62,31 +52,34 @@
     #restore-screen {
       position:fixed; inset:0; z-index:99999;
       display:flex; align-items:center; justify-content:center;
-      background:rgba(8,12,20,0.97); backdrop-filter:blur(12px);
+      background:rgba(245,244,240,0.97); backdrop-filter:blur(12px);
       animation:fadeIn 0.3s ease both;
     }
     @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
     .restore-card {
-      background:linear-gradient(135deg,#0f1923,#141f2e);
-      border:1px solid #1e3050; border-radius:22px;
-      padding:2.5rem 3rem; max-width:420px; width:92%;
+      background:var(--surface);
+      border:1.5px solid var(--border);
+      border-radius:22px;
+      padding:2.5rem 3rem;
+      max-width:420px;
+      width:92%;
       text-align:center;
-      box-shadow:0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(6,182,212,0.07);
+      box-shadow:var(--shadow-lg);
       animation:cardPop 0.5s cubic-bezier(0.16,1,0.3,1) both;
     }
     @keyframes cardPop{from{opacity:0;transform:scale(0.85) translateY(20px);}to{opacity:1;transform:scale(1);}}
     .restore-emoji{font-size:3.5rem;display:block;margin-bottom:0.6rem;animation:wobble2 3s ease-in-out infinite;}
     @keyframes wobble2{0%,100%{transform:rotate(-5deg);}50%{transform:rotate(5deg);}}
-    .restore-label{font-family:var(--font-mono);font-size:0.62rem;letter-spacing:0.22em;color:#06b6d4;text-transform:uppercase;margin-bottom:0.5rem;}
-    .restore-name{font-family:'Black Han Sans',sans-serif;font-size:2.2rem;color:#f59e0b;line-height:1;margin-bottom:0.5rem;text-shadow:0 0 30px rgba(245,158,11,0.3);}
-    .restore-sub{color:#475569;font-size:0.82rem;margin-bottom:2rem;line-height:1.6;}
-    .restore-sub strong{color:#94a3b8;}
+    .restore-label{font-family:var(--font-mono);font-size:0.62rem;letter-spacing:0.22em;color:var(--accent2);text-transform:uppercase;margin-bottom:0.5rem;}
+    .restore-name{font-family:'Black Han Sans',sans-serif;font-size:2.2rem;color:var(--accent);line-height:1;margin-bottom:0.5rem;}
+    .restore-sub{color:var(--text-dim);font-size:0.82rem;margin-bottom:2rem;line-height:1.6;}
+    .restore-sub strong{color:var(--text);}
     .restore-btns{display:flex;gap:0.8rem;justify-content:center;}
     .restore-btn{font-family:'Black Han Sans',sans-serif;font-size:0.9rem;padding:0.75rem 1.6rem;border-radius:9px;border:none;cursor:pointer;letter-spacing:1px;transition:all 0.2s;}
-    .restore-btn.yes{background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;}
-    .restore-btn.yes:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(6,182,212,0.4);}
-    .restore-btn.no{background:transparent;color:#475569;border:1.5px solid #1e3050;}
-    .restore-btn.no:hover{border-color:#f59e0b;color:#f59e0b;}
+    .restore-btn.yes{background:var(--accent2);color:#fff;}
+    .restore-btn.yes:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(37,99,235,0.35);}
+    .restore-btn.no{background:transparent;color:var(--text-dim);border:1.5px solid var(--border);}
+    .restore-btn.no:hover{border-color:var(--accent);color:var(--accent);}
 
     /* ══════════════════════════════
        JOIN SCREEN
@@ -125,102 +118,51 @@
     #game-screen{min-height:100vh;display:flex;flex-direction:column;}
     .game-header{display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.5rem;
       background:var(--surface);border-bottom:1.5px solid var(--border);flex-wrap:wrap;gap:0.6rem;
-      position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,0.06);transition:all 0.4s;}
-    body.spec .game-header{background:rgba(15,25,35,0.98);border-bottom:1px solid #1e3050;box-shadow:0 1px 0 #1e3050,0 4px 30px rgba(6,182,212,0.06);}
+      position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,0.06);}
     .header-left{display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;}
     .header-right{display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;}
-    .logo-small{font-family:var(--font-display);font-size:1.1rem;color:var(--accent);letter-spacing:2px;transition:all 0.4s;}
-    body.spec .logo-small{color:#06b6d4;font-family:var(--font-mono);font-size:0.85rem;letter-spacing:3px;}
+    .logo-small{font-family:var(--font-display);font-size:1.1rem;color:var(--accent);letter-spacing:2px;}
     .player-badge{display:flex;align-items:center;gap:0.4rem;background:var(--accent-lt);border:1.5px solid rgba(224,92,42,0.2);
-      border-radius:100px;padding:0.25rem 0.8rem;font-size:0.82rem;font-weight:700;color:var(--accent);transition:all 0.4s;}
-    body.spec .player-badge{background:rgba(6,182,212,0.08);border-color:rgba(6,182,212,0.25);color:#06b6d4;font-family:var(--font-mono);font-size:0.7rem;}
+      border-radius:100px;padding:0.25rem 0.8rem;font-size:0.82rem;font-weight:700;color:var(--accent);}
     .player-dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
     .online-count{display:flex;align-items:center;gap:0.35rem;font-size:0.82rem;color:var(--text-dim);font-weight:600;}
     .pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--accent3);display:inline-block;animation:pulse 2s infinite;}
     @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(5,150,105,0.5);}50%{box-shadow:0 0 0 5px rgba(5,150,105,0);}}
-    body.spec .pulse-dot{background:#06b6d4;animation:pulseCyan 2s infinite;}
-    @keyframes pulseCyan{0%,100%{box-shadow:0 0 0 0 rgba(6,182,212,0.6);}50%{box-shadow:0 0 0 5px rgba(6,182,212,0);}}
 
-    /* Turn countdown pill in header */
+    /* Turn countdown pill */
     #turn-countdown-pill{
       display:none; align-items:center; gap:0.4rem;
       background:#FEF3C7; border:1.5px solid #FCD34D;
       border-radius:100px; padding:0.25rem 0.85rem;
       font-size:0.78rem; font-weight:700; color:#92400E;
-      font-family:var(--font-mono); transition:all 0.4s;
+      font-family:var(--font-mono);
     }
     #turn-countdown-pill.visible{display:flex;}
     #turn-countdown-pill.urgent{background:#FEE2E2;border-color:#FCA5A5;color:#991B1B;animation:urgentPulse 0.6s ease-in-out infinite;}
     @keyframes urgentPulse{0%,100%{opacity:1;}50%{opacity:0.7;}}
-    body.spec #turn-countdown-pill{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3);color:#f59e0b;}
-    body.spec #turn-countdown-pill.urgent{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:#f87171;}
 
     #turn-banner{padding:0.5rem 1.5rem;text-align:center;font-family:var(--font-display);font-size:0.95rem;letter-spacing:2px;animation:bannerPulse 1.5s ease-in-out infinite;}
     @keyframes bannerPulse{0%,100%{opacity:1;}50%{opacity:0.85;}}
 
     /* ══════════════════════════════
-       WAITING FOR PLAYER OVERLAY
-    ══════════════════════════════ */
-    #waiting-overlay{
-      position:fixed; inset:0; z-index:8000;
-      display:flex; align-items:center; justify-content:center;
-      background:rgba(245,244,240,0.92); backdrop-filter:blur(8px);
-    }
-    #waiting-overlay.hidden{display:none!important;}
-    body.spec #waiting-overlay{background:rgba(8,12,20,0.93);}
-    .waiting-card{
-      background:var(--surface); border:1.5px solid var(--border);
-      border-radius:24px; padding:3rem 3.5rem; text-align:center;
-      max-width:420px; width:92%; box-shadow:var(--shadow-lg);
-      animation:slideUp 0.5s cubic-bezier(0.16,1,0.3,1) both;
-    }
-    body.spec .waiting-card{background:#0f1923;border-color:#1e3050;box-shadow:0 30px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(6,182,212,0.07);}
-    .waiting-emoji{font-size:4rem;display:block;margin-bottom:0.8rem;animation:waitBounce 1.8s ease-in-out infinite;}
-    @keyframes waitBounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
-    .waiting-title{font-family:var(--font-display);font-size:1.9rem;color:var(--accent);letter-spacing:2px;margin-bottom:0.5rem;}
-    body.spec .waiting-title{font-family:var(--font-mono);color:#06b6d4;font-size:1.4rem;text-shadow:0 0 20px rgba(6,182,212,0.4);}
-    .waiting-sub{color:var(--text-dim);font-size:0.88rem;line-height:1.6;margin-bottom:1.5rem;}
-    .waiting-dots{display:flex;justify-content:center;gap:0.5rem;margin-bottom:1.5rem;}
-    .waiting-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);opacity:0.25;animation:dotPulse 1.4s ease-in-out infinite;}
-    body.spec .waiting-dot{background:#06b6d4;}
-    .waiting-dot:nth-child(1){animation-delay:0s;}
-    .waiting-dot:nth-child(2){animation-delay:0.2s;}
-    .waiting-dot:nth-child(3){animation-delay:0.4s;}
-    @keyframes dotPulse{0%,80%,100%{opacity:0.25;transform:scale(1);}40%{opacity:1;transform:scale(1.3);}}
-    .waiting-player-count{font-family:var(--font-mono);font-size:0.68rem;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;}
-    .waiting-player-count span{color:var(--accent3);font-weight:700;}
-    body.spec .waiting-player-count span{color:#06b6d4;}
-
-    /* Block text selection globally */
-    body { -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none; }
-
-    .game-main{flex:1;display:grid;grid-template-columns:1fr 340px;}
-    .left-panel{padding:1.5rem;border-right:1.5px solid var(--border);transition:border-color 0.4s;}
-    body.spec .left-panel{border-right-color:#1e3050;}
-    .right-panel{padding:1.5rem;background:var(--surface);display:flex;flex-direction:column;gap:0;transition:background 0.4s;}
-    body.spec .right-panel{background:rgba(15,25,35,0.8);}
-    .panel-title{font-family:var(--font-display);font-size:0.75rem;letter-spacing:0.18em;color:var(--text-dim);
-      text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:0.6rem;}
-    body.spec .panel-title{font-family:var(--font-mono);font-size:0.6rem;letter-spacing:0.25em;color:#1e4060;}
-
-    /* ══════════════════════════════
-       SPECTATOR BROADCAST BANNER
+       SPECTATOR BANNER — LIGHT MODE
     ══════════════════════════════ */
     #spectator-banner{display:none;}
     #spectator-banner.visible{display:block;}
     .broadcast-bar{
-      background:linear-gradient(90deg,#060a10 0%,#0f1923 40%,#0f1923 60%,#060a10 100%);
-      border-bottom:1px solid #1e3050; position:relative; overflow:hidden;
+      background:linear-gradient(90deg,#FFF8F0 0%,#FDE8DF 40%,#FDE8DF 60%,#FFF8F0 100%);
+      border-bottom:1.5px solid #FDBA74;
+      position:relative; overflow:hidden;
     }
     .broadcast-bar::before{
       content:''; position:absolute; top:0; left:-100%; width:60%; height:100%;
-      background:linear-gradient(90deg,transparent,rgba(6,182,212,0.06),transparent);
+      background:linear-gradient(90deg,transparent,rgba(224,92,42,0.08),transparent);
       animation:scanBar 3s linear infinite;
     }
     @keyframes scanBar{to{left:150%;}}
     .broadcast-inner{display:flex;align-items:stretch;max-width:100%;overflow:hidden;}
     .bc-left{
-      background:linear-gradient(135deg,#06b6d4,#0284c7);
+      background:linear-gradient(135deg,#E05C2A,#c44b1f);
       padding:0 1.2rem 0 1rem; display:flex; align-items:center; justify-content:center; gap:0.5rem;
       flex-shrink:0; clip-path:polygon(0 0,100% 0,88% 100%,0 100%); padding-right:1.8rem;
     }
@@ -230,58 +172,85 @@
     .bc-center{flex:1;display:flex;align-items:center;padding:0.65rem 1.4rem;gap:1rem;overflow:hidden;}
     .bc-icon{font-size:1.1rem;flex-shrink:0;}
     .bc-text{flex:1;overflow:hidden;}
-    .bc-title{font-family:var(--font-mono);font-size:0.65rem;color:#06b6d4;letter-spacing:0.15em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .bc-sub{font-size:0.72rem;color:#475569;margin-top:0.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .bc-title{font-family:var(--font-mono);font-size:0.65rem;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .bc-sub{font-size:0.72rem;color:var(--text-dim);margin-top:0.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .bc-right{display:flex;align-items:center;gap:0.5rem;padding:0 1rem;flex-shrink:0;}
-    .bc-badge{background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;
+    .bc-badge{background:rgba(224,92,42,0.1);border:1px solid rgba(224,92,42,0.25);color:var(--accent);
       font-family:var(--font-mono);font-size:0.58rem;font-weight:700;letter-spacing:0.2em;
       text-transform:uppercase;border-radius:4px;padding:0.2rem 0.55rem;white-space:nowrap;}
-    .bc-count-badge{background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);color:#0ea5e9;
+    .bc-count-badge{background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.2);color:var(--accent2);
       font-family:var(--font-mono);font-size:0.58rem;letter-spacing:0.1em;
       text-transform:uppercase;border-radius:4px;padding:0.2rem 0.55rem;white-space:nowrap;}
-    .bc-ticker{background:#040710;border-bottom:1px solid #0f1923;overflow:hidden;height:24px;position:relative;}
+    .bc-ticker{background:#FFF8F0;border-bottom:1px solid #FDBA74;overflow:hidden;height:24px;position:relative;}
     .bc-ticker-inner{display:flex;align-items:center;height:100%;animation:tickerScroll 35s linear infinite;white-space:nowrap;position:absolute;left:0;top:0;}
     @keyframes tickerScroll{0%{transform:translateX(100vw);}100%{transform:translateX(-100%);}}
-    .bc-ticker-item{font-family:var(--font-mono);font-size:0.58rem;color:#1e3050;letter-spacing:0.15em;text-transform:uppercase;padding:0 2rem;display:inline-flex;align-items:center;gap:0.8rem;}
-    .bc-ticker-item span.hi{color:#06b6d4;}
+    .bc-ticker-item{font-family:var(--font-mono);font-size:0.58rem;color:#FDBA74;letter-spacing:0.15em;text-transform:uppercase;padding:0 2rem;display:inline-flex;align-items:center;gap:0.8rem;}
+    .bc-ticker-item span.hi{color:var(--accent);}
 
-    /* Spec stats strip */
+    /* ══════════════════════════════
+       WAITING FOR PLAYER OVERLAY
+    ══════════════════════════════ */
+    #waiting-overlay{
+      position:fixed; inset:0; z-index:8000;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(245,244,240,0.93); backdrop-filter:blur(8px);
+    }
+    #waiting-overlay.hidden{display:none!important;}
+    .waiting-card{
+      background:var(--surface); border:1.5px solid var(--border);
+      border-radius:24px; padding:3rem 3.5rem; text-align:center;
+      max-width:420px; width:92%; box-shadow:var(--shadow-lg);
+      animation:slideUp 0.5s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .waiting-emoji{font-size:4rem;display:block;margin-bottom:0.8rem;animation:waitBounce 1.8s ease-in-out infinite;}
+    @keyframes waitBounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
+    .waiting-title{font-family:var(--font-display);font-size:1.9rem;color:var(--accent);letter-spacing:2px;margin-bottom:0.5rem;}
+    .waiting-sub{color:var(--text-dim);font-size:0.88rem;line-height:1.6;margin-bottom:1.5rem;}
+    .waiting-dots{display:flex;justify-content:center;gap:0.5rem;margin-bottom:1.5rem;}
+    .waiting-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);opacity:0.25;animation:dotPulse 1.4s ease-in-out infinite;}
+    .waiting-dot:nth-child(1){animation-delay:0s;}
+    .waiting-dot:nth-child(2){animation-delay:0.2s;}
+    .waiting-dot:nth-child(3){animation-delay:0.4s;}
+    @keyframes dotPulse{0%,80%,100%{opacity:0.25;transform:scale(1);}40%{opacity:1;transform:scale(1.3);}}
+    .waiting-player-count{font-family:var(--font-mono);font-size:0.68rem;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;}
+    .waiting-player-count span{color:var(--accent3);font-weight:700;}
+
+    /* ══════════════════════════════
+       GAME LAYOUT
+    ══════════════════════════════ */
+    .game-main{flex:1;display:grid;grid-template-columns:1fr 340px;}
+    .left-panel{padding:1.5rem;border-right:1.5px solid var(--border);}
+    .right-panel{padding:1.5rem;background:var(--surface);display:flex;flex-direction:column;gap:0;}
+    .panel-title{font-family:var(--font-display);font-size:0.75rem;letter-spacing:0.18em;color:var(--text-dim);
+      text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:0.6rem;}
+
+    /* Spectator stats strip */
     .spec-stats-bar{display:none;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:1rem;}
-    body.spec .spec-stats-bar{display:grid;}
-    .spec-stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.65rem 0.8rem;text-align:center;position:relative;overflow:hidden;}
-    .spec-stat::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(6,182,212,0.04),transparent);}
-    .spec-stat-val{font-family:var(--font-mono);font-size:1.2rem;color:#06b6d4;font-weight:700;line-height:1;text-shadow:0 0 20px rgba(6,182,212,0.4);}
+    .spec-stats-bar.visible{display:grid;}
+    .spec-stat{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:0.65rem 0.8rem;text-align:center;}
+    .spec-stat-val{font-family:var(--font-mono);font-size:1.2rem;color:var(--accent);font-weight:700;line-height:1;}
     .spec-stat-label{font-size:0.58rem;color:var(--text-dim);margin-top:0.25rem;text-transform:uppercase;letter-spacing:0.1em;}
 
-    /* Spec card overlay */
-    .bingo-card-wrap.spec-locked::after{
-      content:''; position:absolute; inset:0;
-      background:linear-gradient(135deg,rgba(8,12,20,0.5),rgba(6,182,212,0.03));
-      border-radius:16px; pointer-events:none; z-index:2;
-    }
+    /* Spec card label */
     .spec-card-label{
       display:flex; align-items:center; justify-content:center; gap:0.5rem;
       padding:0.45rem 0.8rem; margin-bottom:0.7rem;
-      background:rgba(6,182,212,0.05); border:1px solid rgba(6,182,212,0.15);
+      background:var(--accent-lt); border:1px solid rgba(224,92,42,0.2);
       border-radius:8px; font-family:var(--font-mono);
-      font-size:0.6rem; letter-spacing:0.18em; color:#0ea5e9; text-transform:uppercase;
+      font-size:0.6rem; letter-spacing:0.18em; color:var(--accent); text-transform:uppercase;
     }
-    .spec-card-label .hi{color:#f59e0b;}
 
     /* ══════════════════════════════
        LATEST NUMBER
     ══════════════════════════════ */
     .latest-number-wrap{display:flex;align-items:center;gap:1.2rem;background:var(--surface);
-      border:1.5px solid var(--border);border-radius:16px;padding:1rem 1.5rem;margin-bottom:1.2rem;box-shadow:var(--shadow);transition:all 0.4s;}
-    body.spec .latest-number-wrap{background:linear-gradient(135deg,#0f1923,#141f2e);border-color:#1e3050;box-shadow:0 0 40px rgba(6,182,212,0.06),inset 0 1px 0 rgba(255,255,255,0.02);}
+      border:1.5px solid var(--border);border-radius:16px;padding:1rem 1.5rem;margin-bottom:1.2rem;box-shadow:var(--shadow);}
     .latest-number{font-family:var(--font-display);font-size:clamp(3.5rem,8vw,5.5rem);line-height:1;
       color:var(--accent);display:inline-block;min-width:3rem;text-align:center;transition:color 0.3s;}
-    body.spec .latest-number{font-family:var(--font-mono);text-shadow:0 0 30px currentColor;}
     .latest-number.pop{animation:popIn 0.4s cubic-bezier(0.16,1,0.3,1);}
     @keyframes popIn{0%{transform:scale(0.4) rotate(-10deg);opacity:0;}60%{transform:scale(1.2) rotate(2deg);}100%{transform:scale(1) rotate(0deg);opacity:1;}}
     .latest-info{flex:1;}
     .latest-info .li-label{font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;}
-    body.spec .latest-info .li-label{font-family:var(--font-mono);font-size:0.58rem;}
     .latest-info .li-player{font-size:0.9rem;font-weight:700;margin-top:0.2rem;}
     .latest-info .li-count{font-size:0.78rem;color:var(--text-dim);margin-top:0.1rem;}
 
@@ -290,14 +259,11 @@
     ══════════════════════════════ */
     .bingo-letters-wrap{display:flex;align-items:stretch;justify-content:center;gap:0.5rem;
       background:var(--surface);border:1.5px solid var(--border);border-radius:16px;
-      padding:1rem 1.2rem;margin-bottom:1.2rem;box-shadow:var(--shadow);transition:all 0.4s;}
-    body.spec .bingo-letters-wrap{background:linear-gradient(135deg,#0f1923,#141f2e);border-color:#1e3050;}
+      padding:1rem 1.2rem;margin-bottom:1.2rem;box-shadow:var(--shadow);}
     .bingo-letter-box{flex:1;max-width:68px;min-height:62px;display:flex;flex-direction:column;align-items:center;
       justify-content:center;gap:2px;border-radius:10px;border:2px solid var(--border);background:var(--surface2);
       transition:all 0.35s cubic-bezier(0.16,1,0.3,1);}
-    body.spec .bingo-letter-box{border-color:#1e3050;background:#060a10;}
     .bl-letter{font-family:var(--font-display);font-size:1.7rem;line-height:1;color:var(--text-dim);transition:all 0.35s;position:relative;}
-    body.spec .bl-letter{font-family:var(--font-mono);font-size:1.3rem;color:#1e3050;}
     .bl-sub{font-size:0.52rem;font-weight:700;color:var(--text-dim);letter-spacing:0.04em;text-transform:uppercase;transition:color 0.35s;text-align:center;}
     .bingo-letter-box.struck{border-color:transparent;transform:scale(1.1);}
     .bingo-letter-box.struck .bl-letter{color:#fff;}
@@ -308,11 +274,6 @@
     .bingo-letter-box.struck[data-l="N"]{background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 4px 18px rgba(5,150,105,0.45);}
     .bingo-letter-box.struck[data-l="G"]{background:linear-gradient(135deg,#7C3AED,#a855f7);box-shadow:0 4px 18px rgba(124,58,237,0.45);}
     .bingo-letter-box.struck[data-l="O"]{background:linear-gradient(135deg,#DB2777,#f472b6);box-shadow:0 4px 18px rgba(219,39,119,0.45);}
-    body.spec .bingo-letter-box.struck[data-l="B"]{background:linear-gradient(135deg,#06b6d4,#0891b2);box-shadow:0 4px 22px rgba(6,182,212,0.5);}
-    body.spec .bingo-letter-box.struck[data-l="I"]{background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 22px rgba(245,158,11,0.5);}
-    body.spec .bingo-letter-box.struck[data-l="N"]{background:linear-gradient(135deg,#22d3ee,#06b6d4);box-shadow:0 4px 22px rgba(34,211,238,0.5);}
-    body.spec .bingo-letter-box.struck[data-l="G"]{background:linear-gradient(135deg,#f59e0b,#fbbf24);box-shadow:0 4px 22px rgba(245,158,11,0.4);}
-    body.spec .bingo-letter-box.struck[data-l="O"]{background:linear-gradient(135deg,#06b6d4,#22d3ee);box-shadow:0 4px 22px rgba(6,182,212,0.5);}
     .bingo-letter-box.just-struck{animation:letterPop 0.5s cubic-bezier(0.16,1,0.3,1);}
     @keyframes letterPop{0%{transform:scale(0.5) rotate(-12deg);}60%{transform:scale(1.2) rotate(3deg);}100%{transform:scale(1.1);}}
 
@@ -320,36 +281,26 @@
        BINGO CARD
     ══════════════════════════════ */
     .bingo-card-wrap{background:var(--surface);border:1.5px solid var(--border);border-radius:16px;
-      padding:1rem;box-shadow:var(--shadow);margin-bottom:1.2rem;max-width:340px;position:relative;transition:all 0.4s;}
-    body.spec .bingo-card-wrap{background:#0a0f18;border-color:#1e3050;}
+      padding:1rem;box-shadow:var(--shadow);margin-bottom:1.2rem;max-width:340px;position:relative;}
     .card-tap-hint{font-size:0.75rem;color:var(--text-dim);text-align:center;margin-bottom:0.6rem;font-weight:600;letter-spacing:0.04em;}
     .bingo-header{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:4px;}
-    .bingo-header-cell{font-family:var(--font-display);font-size:clamp(0.8rem,1.8vw,1rem);text-align:center;padding:0.25rem 0;letter-spacing:1px;transition:all 0.4s;border-radius:4px;}
+    .bingo-header-cell{font-family:var(--font-display);font-size:clamp(0.8rem,1.8vw,1rem);text-align:center;padding:0.25rem 0;letter-spacing:1px;border-radius:4px;}
     .bingo-header-cell[data-col="0"]{color:#E05C2A;}
     .bingo-header-cell[data-col="1"]{color:#2563EB;}
     .bingo-header-cell[data-col="2"]{color:#059669;}
     .bingo-header-cell[data-col="3"]{color:#7C3AED;}
     .bingo-header-cell[data-col="4"]{color:#DB2777;}
-    body.spec .bingo-header-cell{font-family:var(--font-mono);font-size:0.72rem;}
-    body.spec .bingo-header-cell[data-col="0"],
-    body.spec .bingo-header-cell[data-col="2"],
-    body.spec .bingo-header-cell[data-col="4"]{color:#06b6d4;}
-    body.spec .bingo-header-cell[data-col="1"],
-    body.spec .bingo-header-cell[data-col="3"]{color:#f59e0b;}
     .bingo-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
     .b-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;
       background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;
       font-family:var(--font-display);font-size:clamp(0.65rem,1.5vw,0.85rem);
       color:var(--text-dim);cursor:pointer;transition:all 0.25s;user-select:none;position:relative;overflow:hidden;}
-    body.spec .b-cell{background:#060a10;border-color:#1e3050;font-family:var(--font-mono);font-size:0.7rem;}
     .b-cell:hover:not(.b-called):not(.b-disabled){border-color:var(--accent);color:var(--accent);background:var(--accent-lt);transform:scale(1.08);}
     .b-cell.b-called{color:#fff;border-color:transparent;transform:scale(1.04);box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:default;}
-    body.spec .b-cell.b-called{box-shadow:0 0 12px rgba(6,182,212,0.15);}
     .b-cell.b-disabled{cursor:not-allowed;opacity:0.55;}
     .b-cell.b-called-latest{animation:cellPop 0.45s cubic-bezier(0.16,1,0.3,1);}
     @keyframes cellPop{0%{transform:scale(0.45);}60%{transform:scale(1.2);}100%{transform:scale(1.04);}}
     .b-cell.b-win{box-shadow:0 0 0 2.5px #FFD700,0 2px 10px rgba(255,215,0,0.5)!important;z-index:1;}
-    body.spec .b-cell.b-win{box-shadow:0 0 0 2px #06b6d4,0 0 14px rgba(6,182,212,0.4)!important;}
 
     /* ══════════════════════════════
        RIGHT PANEL
@@ -360,30 +311,23 @@
     .empty-history{color:var(--text-dim);font-size:0.82rem;text-align:center;padding:1.2rem 0;}
     .history-item{display:flex;align-items:center;gap:0.65rem;padding:0.5rem 0.8rem;
       background:var(--surface2);border-radius:8px;border:1.5px solid var(--border);
-      animation:slideInRight 0.3s cubic-bezier(0.16,1,0.3,1) both;transition:all 0.3s;}
-    body.spec .history-item{background:#060a10;border-color:#1e3050;}
+      animation:slideInRight 0.3s cubic-bezier(0.16,1,0.3,1) both;}
     .history-item.latest-item{border-color:var(--accent);background:var(--accent-lt);}
-    body.spec .history-item.latest-item{border-color:#06b6d4;background:rgba(6,182,212,0.06);}
     @keyframes slideInRight{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:translateX(0);}}
     .history-num{font-family:var(--font-display);font-size:1.2rem;min-width:2.2rem;text-align:center;line-height:1;}
-    body.spec .history-num{font-family:var(--font-mono);font-size:1rem;}
     .history-info{flex:1;}
     .history-player{font-size:0.78rem;font-weight:700;}
     .history-time{font-size:0.68rem;color:var(--text-dim);margin-top:1px;}
     .count-badge{background:var(--surface2);border:1.5px solid var(--border);border-radius:100px;padding:0.1rem 0.45rem;font-size:0.67rem;font-weight:700;color:var(--text-dim);}
-    body.spec .count-badge{background:#060a10;border-color:#1e3050;font-family:var(--font-mono);}
     .players-list{display:flex;flex-direction:column;gap:0.4rem;max-height:180px;overflow-y:auto;}
     .player-item{display:flex;align-items:center;gap:0.65rem;padding:0.45rem 0.8rem;
       background:var(--surface2);border-radius:8px;border:1.5px solid var(--border);
       font-size:0.84rem;font-weight:600;animation:slideInRight 0.3s both;transition:border-color 0.3s;}
-    body.spec .player-item{background:#060a10;border-color:#1e3050;}
     .player-item.is-turn{border-color:var(--accent2);background:#EFF6FF;}
-    body.spec .player-item.is-turn{background:rgba(6,182,212,0.06);border-color:#06b6d4;}
     .player-item .p-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
     .player-item .p-name{flex:1;}
     .player-item .turn-tag{font-size:0.67rem;background:var(--accent2);color:#fff;border-radius:4px;padding:0.1rem 0.35rem;font-weight:800;}
-    body.spec .player-item .turn-tag{background:#06b6d4;color:#080c14;font-family:var(--font-mono);}
-    .spec-watch-tag{font-size:0.58rem;background:rgba(245,158,11,0.1);color:#f59e0b;border:1px solid rgba(245,158,11,0.25);border-radius:4px;padding:0.1rem 0.35rem;font-family:var(--font-mono);letter-spacing:0.1em;}
+    .spec-watch-tag{font-size:0.58rem;background:var(--accent-lt);color:var(--accent);border:1px solid rgba(224,92,42,0.25);border-radius:4px;padding:0.1rem 0.35rem;font-family:var(--font-mono);letter-spacing:0.1em;}
 
     /* ══════════════════════════════
        TOAST
@@ -392,18 +336,14 @@
     .toast{background:var(--surface);border:1.5px solid var(--border);border-radius:9px;padding:0.65rem 1rem;
       font-size:0.82rem;font-weight:600;max-width:300px;animation:toastIn 0.3s cubic-bezier(0.16,1,0.3,1) both;
       box-shadow:var(--shadow-lg);color:var(--text);}
-    body.spec .toast{background:#0f1923;border-color:#1e3050;}
     .toast.join   {border-left:4px solid var(--accent3);}
     .toast.leave  {border-left:4px solid #F87171;}
     .toast.info   {border-left:4px solid var(--accent2);}
     .toast.number {border-left:4px solid var(--accent);}
     .toast.line   {border-left:4px solid #FFD700;background:#FFFBEB;}
-    body.spec .toast.line{background:#0f1923;border-left-color:#f59e0b;}
     .toast.bingo  {border-left:4px solid #FF6B6B;background:#FFF0F0;}
-    body.spec .toast.bingo{background:#0f1923;border-left-color:#06b6d4;}
-    .toast.rejoin {border-left:4px solid #06b6d4;background:#0f1923;color:#06b6d4;}
+    .toast.rejoin {border-left:4px solid var(--accent2);}
     .toast.timeout{border-left:4px solid #F59E0B;background:#FFFBEB;}
-    body.spec .toast.timeout{background:#0f1923;border-left-color:#f59e0b;}
     @keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(0.95);}to{opacity:1;transform:translateY(0) scale(1);}}
     @keyframes toastOut{from{opacity:1;}to{opacity:0;transform:translateY(10px);}}
 
@@ -412,7 +352,6 @@
     ══════════════════════════════ */
     #bingo-overlay{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;
       background:rgba(245,244,240,0.93);backdrop-filter:blur(6px);animation:overlayIn 0.5s ease both;}
-    body.spec #bingo-overlay{background:rgba(8,12,20,0.95);}
     #bingo-overlay.hidden{display:none!important;}
     @keyframes overlayIn{from{opacity:0;}to{opacity:1;}}
     .confetti-piece{position:fixed;width:10px;height:10px;border-radius:2px;pointer-events:none;z-index:8999;animation:confettiFall linear forwards;}
@@ -420,17 +359,14 @@
     .bingo-modal{background:var(--surface);border:2px solid var(--border);border-radius:28px;padding:3rem 3.5rem;
       text-align:center;max-width:520px;width:92%;box-shadow:0 30px 80px rgba(0,0,0,0.18);
       animation:modalPop 0.55s cubic-bezier(0.16,1,0.3,1) both;position:relative;overflow:hidden;}
-    body.spec .bingo-modal{background:#0f1923;border-color:#1e3050;box-shadow:0 30px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(6,182,212,0.1);}
     @keyframes modalPop{0%{opacity:0;transform:scale(0.5) rotate(-3deg);}60%{transform:scale(1.05) rotate(1deg);}100%{opacity:1;transform:scale(1) rotate(0deg);}}
     .bingo-modal::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(224,92,42,0.05),rgba(37,99,235,0.04));pointer-events:none;}
-    body.spec .bingo-modal::before{background:linear-gradient(135deg,rgba(6,182,212,0.05),rgba(245,158,11,0.03));}
     .bingo-trophy{font-size:5rem;display:block;margin-bottom:0.5rem;animation:trophyBounce 1s ease-in-out infinite;}
     @keyframes trophyBounce{0%,100%{transform:translateY(0) rotate(-3deg);}50%{transform:translateY(-10px) rotate(3deg);}}
     .bingo-word{font-family:var(--font-display);font-size:clamp(4rem,12vw,7rem);line-height:0.9;letter-spacing:4px;
       background:linear-gradient(135deg,var(--accent),#FFD700,var(--accent2));
       -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
       animation:shimmer 2s ease-in-out infinite;background-size:200% auto;}
-    body.spec .bingo-word{font-family:var(--font-mono);background:linear-gradient(135deg,#06b6d4,#f59e0b,#22d3ee);-webkit-background-clip:text;background-clip:text;}
     @keyframes shimmer{0%{background-position:0% center;}50%{background-position:100% center;}100%{background-position:0% center;}}
     .bingo-winner-name{font-family:var(--font-display);font-size:clamp(1.3rem,4vw,2rem);color:var(--text);margin-top:0.6rem;letter-spacing:1px;}
     .bingo-winner-name span{color:var(--accent);}
@@ -443,13 +379,10 @@
       border:1px solid var(--border);border-radius:5px;font-family:var(--font-display);font-size:clamp(0.55rem,1.5vw,0.72rem);color:var(--text-dim);}
     .bm-cell.bm-called{color:#fff;border-color:transparent;}
     .bm-cell.bm-win{box-shadow:0 0 0 2px #FFD700;}
-    body.spec .bm-cell.bm-win{box-shadow:0 0 0 1.5px #06b6d4;}
     .bingo-actions{display:flex;gap:0.75rem;justify-content:center;margin-top:1.8rem;}
     .bingo-btn{font-family:var(--font-display);font-size:0.95rem;padding:0.8rem 2rem;border-radius:var(--radius);border:none;cursor:pointer;letter-spacing:1px;transition:all 0.15s;}
     .bingo-btn.primary{background:var(--accent);color:#fff;}
-    body.spec .bingo-btn.primary{background:linear-gradient(135deg,#06b6d4,#0891b2);}
     .bingo-btn.primary:hover{background:#c44b1f;transform:translateY(-2px);box-shadow:0 6px 20px rgba(224,92,42,0.3);}
-    body.spec .bingo-btn.primary:hover{background:linear-gradient(135deg,#0891b2,#0369a1);box-shadow:0 6px 20px rgba(6,182,212,0.4);}
     .bingo-btn.secondary{background:var(--surface2);color:var(--text);border:1.5px solid var(--border);}
     .bingo-btn.secondary:hover{border-color:var(--accent2);color:var(--accent2);}
 
@@ -518,7 +451,6 @@
         <span class="pulse-dot"></span>
         <span id="player-count">0</span>&nbsp;online
       </div>
-      <!-- Countdown pill — shows remaining seconds for current turn -->
       <div id="turn-countdown-pill">
         ⏱ <span id="turn-countdown-val">60</span>s
       </div>
@@ -527,7 +459,7 @@
 
   <div id="turn-banner" class="hidden"><span id="turn-text"></span></div>
 
-  <!-- ══ SPECTATOR BROADCAST BANNER ══ -->
+  <!-- ══ SPECTATOR BANNER ══ -->
   <div id="spectator-banner">
     <div class="broadcast-bar">
       <div class="broadcast-inner">
@@ -536,10 +468,10 @@
           <div class="bc-live-label">LIVE</div>
         </div>
         <div class="bc-center">
-          <div class="bc-icon">📡</div>
+          <div class="bc-icon">👀</div>
           <div class="bc-text">
-            <div class="bc-title">SPECTATOR BROADCAST — WATCHING LIVE</div>
-            <div class="bc-sub">You joined mid-game. Cards are locked this round — you'll play in the next game.</div>
+            <div class="bc-title">SPECTATOR MODE — WATCHING LIVE</div>
+            <div class="bc-sub">You joined mid-game. Your card is locked this round — you'll play in the next game.</div>
           </div>
         </div>
         <div class="bc-right">
@@ -550,10 +482,10 @@
     </div>
     <div class="bc-ticker">
       <div class="bc-ticker-inner">
-        <div class="bc-ticker-item">📡 <span class="hi">SPECTATING</span> &nbsp;·&nbsp; Watch the action live &nbsp;·&nbsp;</div>
+        <div class="bc-ticker-item">👀 <span class="hi">SPECTATING</span> &nbsp;·&nbsp; Watch the action live &nbsp;·&nbsp;</div>
         <div class="bc-ticker-item">🎱 <span class="hi">BINGO BLASTER</span> &nbsp;·&nbsp; You'll join next round &nbsp;·&nbsp;</div>
         <div class="bc-ticker-item">⚡ <span class="hi">REAL-TIME</span> &nbsp;·&nbsp; Numbers update instantly &nbsp;·&nbsp;</div>
-        <div class="bc-ticker-item">🏆 <span class="hi">BROADCAST MODE</span> &nbsp;·&nbsp; Game in progress &nbsp;·&nbsp;</div>
+        <div class="bc-ticker-item">🏆 <span class="hi">SPECTATOR MODE</span> &nbsp;·&nbsp; Game in progress &nbsp;·&nbsp;</div>
       </div>
     </div>
   </div>
@@ -660,66 +592,11 @@
 <script>
 /* ═══════════════════════════════════════════════════════
    BINGO BLASTER — CLIENT LOGIC
-   ✅ Turn-based only (always on)
-   ✅ 1-min AFK auto-reset with countdown pill
-   ✅ Waiting overlay when < 2 active players
-   ✅ DevTools / inspect / copy-paste all blocked
+   ✅ Light mode only — no dark/spectator theme
+   ✅ Timer syncs from server on page reload
+   ✅ Spectator stays spectator on mobile refresh
+   ✅ Spectator mobile continuous-refresh fix
 ═══════════════════════════════════════════════════════ */
-
-/* ══════════════════════════════════
-   SECURITY — BLOCK DEVTOOLS & SHORTCUTS
-══════════════════════════════════ */
-// Block right-click context menu
-document.addEventListener('contextmenu', e => e.preventDefault());
-
-// Block all keyboard shortcuts
-document.addEventListener('keydown', e => {
-  const k = e.key.toLowerCase();
-  const ctrl = e.ctrlKey || e.metaKey;
-  const shift = e.shiftKey;
-
-  // Block F12
-  if (e.key === 'F12') { e.preventDefault(); return false; }
-
-  // Block Ctrl/Cmd combos: U (view source), S (save), A (select all),
-  // C (copy), X (cut), V (paste), P (print), I (inspect), J (console),
-  // Shift+I, Shift+J, Shift+C (devtools shortcuts)
-  if (ctrl) {
-    const blocked = ['u','s','a','c','x','v','p','i','j','k','l','f','g','h','n','t','w','r'];
-    if (blocked.includes(k)) { e.preventDefault(); return false; }
-    if (shift && ['i','j','c','k'].includes(k)) { e.preventDefault(); return false; }
-  }
-
-  // Block F-keys F1–F12 (except F5 reload? — block all for safety)
-  if (e.key.startsWith('F') && !isNaN(e.key.slice(1))) {
-    e.preventDefault(); return false;
-  }
-}, true);
-
-// Block cut/copy/paste events
-document.addEventListener('copy',  e => e.preventDefault());
-document.addEventListener('cut',   e => e.preventDefault());
-document.addEventListener('paste', e => e.preventDefault());
-
-// Detect devtools open via resize trick and warn
-(function devToolsDetect() {
-  const threshold = 160;
-  setInterval(() => {
-    if (
-      window.outerWidth - window.innerWidth > threshold ||
-      window.outerHeight - window.innerHeight > threshold
-    ) {
-      document.body.innerHTML = `
-        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#080c14;font-family:sans-serif;text-align:center;padding:2rem;">
-          <div>
-            <div style="font-size:4rem;margin-bottom:1rem">🚫</div>
-            <div style="color:#f59e0b;font-size:1.5rem;font-weight:900;letter-spacing:2px;margin-bottom:0.5rem">ACCESS DENIED</div>
-            <div style="color:#475569;font-size:0.9rem">Developer tools are not allowed.<br>Please close DevTools and reload the page.</div>
-          </div>
-        </div>`;
-    }
-  }, 1000);
-})();
 
 const socket = io();
 
@@ -734,7 +611,7 @@ let amSpectator = false;
 let mySessionKey = null;
 let activePlayerCount = 0;
 
-// Client-side countdown
+// Client-side countdown — synced from server
 let countdownInterval = null;
 let countdownSeconds = 60;
 
@@ -765,21 +642,23 @@ function clearSession() {
 
 /* ══════════════════════════════════
    COUNTDOWN PILL
+   - startCountdown(seconds): starts from given seconds (synced from server)
+   - stopCountdown(): hides pill and clears interval
 ══════════════════════════════════ */
-function startCountdown(turnPlayerId, players) {
+function startCountdown(seconds) {
   stopCountdown();
-  if (!turnPlayerId) return;
-
-  countdownSeconds = 60;
+  countdownSeconds = Math.max(0, seconds);
   const pill = $('turn-countdown-pill');
   const val  = $('turn-countdown-val');
+  if (!pill || !val) return;
+
   pill.classList.add('visible');
-  pill.classList.remove('urgent');
+  pill.classList.toggle('urgent', countdownSeconds <= 15);
   val.textContent = countdownSeconds;
 
   countdownInterval = setInterval(() => {
-    countdownSeconds--;
-    val.textContent = Math.max(0, countdownSeconds);
+    countdownSeconds = Math.max(0, countdownSeconds - 1);
+    val.textContent = countdownSeconds;
     if (countdownSeconds <= 15) pill.classList.add('urgent');
     else pill.classList.remove('urgent');
     if (countdownSeconds <= 0) stopCountdown();
@@ -799,29 +678,32 @@ function updateWaitingOverlay(count) {
   const overlay = $('waiting-overlay');
   const countEl = $('waiting-player-count-val');
   if (!overlay) return;
+  // Spectators never see the waiting overlay — they're watching
   if (amSpectator) { overlay.classList.add('hidden'); return; }
   if (countEl) countEl.textContent = count;
   if (count < 2) {
     overlay.classList.remove('hidden');
-    stopCountdown(); // no countdown while waiting
+    stopCountdown();
   } else {
     overlay.classList.add('hidden');
   }
 }
 
 /* ══════════════════════════════════
-   SPECTATOR THEME
+   SPECTATOR UI (light mode version)
 ══════════════════════════════════ */
-function applySpectatorTheme(on) {
-  document.body.classList.toggle('spec', on);
+function applySpectatorUI(on) {
   const logo   = $('logo-small');
   const banner = $('spectator-banner');
+  const stats  = $('spec-stats-bar');
   if (on) {
-    logo.textContent = '📡 BINGO BLASTER — BROADCAST';
+    logo.textContent = '👀 BINGO BLASTER — SPECTATING';
     banner.classList.add('visible');
+    if (stats) stats.classList.add('visible');
   } else {
     logo.textContent = '🎱 BINGO BLASTER';
     banner.classList.remove('visible');
+    if (stats) stats.classList.remove('visible');
   }
 }
 
@@ -840,20 +722,15 @@ function isMyTurn() {
 
 function buildBingoGrid() {
   const grid    = $('bingo-grid');
-  const cardWrap= $('bingo-card-wrap');
   const hintEl  = $('card-tap-hint');
   grid.innerHTML = '';
 
-  if (amSpectator) {
-    cardWrap.classList.add('spec-locked');
-    if (hintEl) hintEl.outerHTML = `<div class="spec-card-label" id="card-tap-hint">📡 Watching Live &nbsp;<span class="hi">·</span>&nbsp; Card locked this round</div>`;
-  } else {
-    cardWrap.classList.remove('spec-locked');
-    const h = $('card-tap-hint');
-    if (h && h.classList.contains('spec-card-label')) {
-      h.outerHTML = `<div class="card-tap-hint" id="card-tap-hint">Tap any number to call it instantly</div>`;
-    } else if (h) {
-      h.textContent = isMyTurn() ? 'Tap any number to call it instantly' : 'Wait for your turn...';
+  // Update hint text
+  if (hintEl) {
+    if (amSpectator) {
+      hintEl.textContent = '👀 Watching live — card locked this round';
+    } else {
+      hintEl.textContent = isMyTurn() ? 'Tap any number to call it instantly' : 'Wait for your turn...';
     }
   }
 
@@ -864,7 +741,7 @@ function buildBingoGrid() {
     cell.textContent = num;
     cell.addEventListener('click', () => {
       if (calledSet.has(num)) return;
-      if (amSpectator) { showToast('📡 Spectators watch only — join next round!', 'info'); return; }
+      if (amSpectator) { showToast('👀 Spectators watch only — join next round!', 'info'); return; }
       if (!isMyTurn()) { showToast('⏳ Not your turn!', 'info'); return; }
       socket.emit('submit_number', { number: num });
     });
@@ -901,8 +778,12 @@ function updateBingoGrid(latestNum) {
 
   // Update hint text
   const h = $('card-tap-hint');
-  if (h && !amSpectator && !h.classList.contains('spec-card-label')) {
-    h.textContent = isMyTurn() ? 'Tap any number to call it instantly' : 'Wait for your turn...';
+  if (h) {
+    if (amSpectator) {
+      h.textContent = '👀 Watching live — card locked this round';
+    } else {
+      h.textContent = isMyTurn() ? 'Tap any number to call it instantly' : 'Wait for your turn...';
+    }
   }
 }
 
@@ -973,9 +854,7 @@ function buildMiniCard() {
 }
 
 function launchConfetti() {
-  const colors = amSpectator
-    ? ['#06b6d4','#f59e0b','#22d3ee','#0284c7','#fbbf24']
-    : ['#E05C2A','#2563EB','#FFD700','#059669','#F87171','#A78BFA','#34D399'];
+  const colors = ['#E05C2A','#2563EB','#FFD700','#059669','#F87171','#A78BFA','#34D399'];
   for (let i=0;i<90;i++) {
     const p = document.createElement('div');
     p.className = 'confetti-piece';
@@ -997,6 +876,7 @@ window.addEventListener('load', () => {
 
     $('restore-yes-btn').addEventListener('click', () => {
       $('restore-screen').classList.add('hidden');
+      // Restore card from session; server will restore spectator status from session key
       myCard = (saved.card && saved.card.length === 25) ? saved.card : generateCard();
       socket.emit('join', { name: saved.name, sessionKey: saved.sessionKey });
     });
@@ -1028,11 +908,11 @@ $('name-input').addEventListener('keydown', e=>{ if(e.key==='Enter') joinGame();
 /* ══════════════════════════════════
    SOCKET EVENTS
 ══════════════════════════════════ */
-socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, sessionKey}) => {
+socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, sessionKey, turnRemainingSeconds}) => {
   myId         = playerId;
   myName       = playerName;
   myColor      = playerColor;
-  amSpectator  = isSpectator;
+  amSpectator  = isSpectator;  // restored from server session — always authoritative
   mySessionKey = sessionKey;
 
   $('my-name-display').textContent = playerName;
@@ -1041,23 +921,39 @@ socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, 
 
   if (!myCard || myCard.length === 0) myCard = generateCard();
 
-  saveSession({ name: playerName, sessionKey, card: myCard });
+  // Save session — include spectator status so we know on next reload
+  saveSession({ name: playerName, sessionKey, card: myCard, isSpectator });
 
-  applySpectatorTheme(isSpectator);
+  applySpectatorUI(isSpectator);
   buildBingoGrid();
   $('join-screen').classList.add('hidden');
   $('game-screen').classList.remove('hidden');
 
-  // Show waiting overlay by default until state_update confirms 2+ players
+  // If not spectator, show waiting overlay until state_update confirms 2+ players
   if (!isSpectator) {
     $('waiting-overlay').classList.remove('hidden');
   }
 
+  // Sync countdown from server on rejoin/reload
+  // (will be properly set again in state_update, but this gives immediate feedback)
+  if (!isSpectator && turnRemainingSeconds > 0) {
+    // Don't start here — wait for state_update to confirm we're in a live game
+    countdownSeconds = turnRemainingSeconds;
+  }
+
   if (isRejoin)         showToast(`🔄 Welcome back, ${playerName}!`, 'rejoin');
-  else if (isSpectator) showToast('📡 Game in progress — you are spectating', 'info');
+  else if (isSpectator) showToast('👀 Game in progress — you are spectating this round', 'info');
 });
 
-socket.on('state_update', ({selectedNumbers: nums, players, playerCount: count, activePlayerCount: activeCnt, currentTurnPlayerId: turnId, gameStarted}) => {
+socket.on('state_update', ({
+  selectedNumbers: nums,
+  players,
+  playerCount: count,
+  activePlayerCount: activeCnt,
+  currentTurnPlayerId: turnId,
+  gameStarted,
+  turnRemainingSeconds
+}) => {
   calledNumbers       = nums;
   calledSet           = new Set(nums.map(n=>n.number));
   currentTurnPlayerId = turnId;
@@ -1076,7 +972,7 @@ socket.on('state_update', ({selectedNumbers: nums, players, playerCount: count, 
     const sp = $('spec-players-val');if(sp) sp.textContent = count;
   }
 
-  // Turn banner — only show when 2+ players
+  // Turn banner — only show when 2+ active players
   const tb = $('turn-banner'), tt = $('turn-text');
   if (turnId && activePlayerCount >= 2) {
     tb.classList.remove('hidden');
@@ -1142,9 +1038,23 @@ socket.on('state_update', ({selectedNumbers: nums, players, playerCount: count, 
     pl.appendChild(el);
   });
 
-  // Start/restart countdown whenever turn changes (only when 2+ players)
+  // ── COUNTDOWN SYNC ──
+  // Always sync countdown from server's authoritative remaining seconds.
+  // This fixes the timer-reset-on-reload bug for both players and spectators.
   if (gameStarted && turnId && activePlayerCount >= 2) {
-    startCountdown(turnId, players);
+    // Only restart if the turn changed OR we don't have a running countdown
+    // Check if the current countdown is out of sync by more than 3 seconds
+    if (!countdownInterval) {
+      // No countdown running — start one synced to server
+      startCountdown(turnRemainingSeconds != null ? turnRemainingSeconds : 60);
+    } else {
+      // Countdown running — check if it's significantly off from server
+      const serverSecs = turnRemainingSeconds != null ? turnRemainingSeconds : countdownSeconds;
+      if (Math.abs(countdownSeconds - serverSecs) > 3) {
+        // Re-sync
+        startCountdown(serverSecs);
+      }
+    }
   } else if (!gameStarted || activePlayerCount < 2) {
     stopCountdown();
   }
@@ -1172,8 +1082,8 @@ socket.on('number_called', ({number, playerName}) => {
   void ld.offsetWidth;
   ld.classList.add('pop');
   showToast(`🎱 ${number} called by ${playerName}!`, 'number');
-  // Reset countdown for new turn
-  countdownSeconds = 61; // will be re-set by state_update
+  // Reset local countdown to 60; state_update will re-sync from server
+  countdownSeconds = 60;
 });
 
 socket.on('turn_timeout', ({playerName}) => {
@@ -1193,25 +1103,41 @@ socket.on('bingo_announced', ({playerName, playerColor}) => {
   }
 });
 
-socket.on('player_joined', ({name, isRejoin}) => showToast(isRejoin ? `🔄 ${name} rejoined` : `👋 ${name} joined the game`, isRejoin?'rejoin':'join'));
-socket.on('player_left',   ({name})         => {
-  showToast(`👋 ${name} left`, 'leave');
-  // waiting overlay will sync on next state_update from server
-});
+socket.on('player_joined', ({name, isRejoin}) => showToast(
+  isRejoin ? `🔄 ${name} rejoined` : `👋 ${name} joined the game`,
+  isRejoin ? 'rejoin' : 'join'
+));
+socket.on('player_left', ({name}) => showToast(`👋 ${name} left`, 'leave'));
 
 socket.on('game_reset', ({by}) => {
   showToast(`🔄 Game reset${by ? ' · ' + by : ''}`, 'info');
-  bingoShown = false; prevStruckCount = 0;
-  calledSet.clear(); calledNumbers = [];
-  amSpectator = false;
+  bingoShown = false;
+  prevStruckCount = 0;
+  calledSet.clear();
+  calledNumbers = [];
   stopCountdown();
-  applySpectatorTheme(false);
+
+  // ── KEY FIX: game_reset makes ALL players active (no more spectators)
+  // Update our local spectator flag to false ONLY IF the server confirmed it.
+  // We defer to the 'joined' event on re-emit or state_update from server.
+  // Do NOT assume amSpectator = false here — wait for server state_update.
+  // The server will send state_update right after game_reset with correct flags.
+
   $('bingo-overlay').classList.add('hidden');
   resetLetterBoxes();
+
+  // Generate new card for next game
   myCard = generateCard();
   const saved = loadSession();
-  if (saved) saveSession({...saved, card: myCard});
+  if (saved) saveSession({...saved, card: myCard, isSpectator: false});
+
+  // applySpectatorUI will be called properly in state_update when server
+  // confirms amSpectator is false for all players after reset.
+  // But we can pre-emptively update UI since reset makes everyone a player.
+  amSpectator = false;
+  applySpectatorUI(false);
   buildBingoGrid();
+
   // waiting overlay will be updated by the state_update that follows reset
 });
 

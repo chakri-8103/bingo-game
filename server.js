@@ -21,6 +21,7 @@ const sessions = {};
 
 // Turn timer
 let turnTimer = null;
+let turnStartedAt = null; // track when current turn started
 const TURN_TIMEOUT_MS = 60 * 1000; // 1 minute
 
 const PLAYER_COLORS = [
@@ -41,6 +42,16 @@ function getCurrentTurnPlayer() {
   return turnOrder[currentTurnIndex % turnOrder.length];
 }
 
+function getTurnElapsedSeconds() {
+  if (!turnStartedAt) return 0;
+  return Math.floor((Date.now() - turnStartedAt) / 1000);
+}
+
+function getTurnRemainingSeconds() {
+  const elapsed = getTurnElapsedSeconds();
+  return Math.max(0, 60 - elapsed);
+}
+
 function broadcastState() {
   const playerList = Object.entries(players).map(([id, p]) => ({
     id,
@@ -58,7 +69,8 @@ function broadcastState() {
     playerCount: playerList.length,
     activePlayerCount,
     currentTurnPlayerId: activePlayerCount >= 2 ? getCurrentTurnPlayer() : null,
-    gameStarted
+    gameStarted,
+    turnRemainingSeconds: getTurnRemainingSeconds() // send remaining time to clients
   });
 }
 
@@ -74,6 +86,8 @@ function startTurnTimer() {
   const player = players[currentId];
   if (!player) return;
 
+  turnStartedAt = Date.now(); // record when this turn started
+
   turnTimer = setTimeout(() => {
     const afkPlayer = players[currentId];
     const afkName = afkPlayer ? afkPlayer.name : 'A player';
@@ -87,6 +101,7 @@ function startTurnTimer() {
     selectedNumbers.length = 0;
     currentTurnIndex = 0;
     gameStarted = false;
+    turnStartedAt = null;
 
     // Re-admit all spectators
     turnOrder.length = 0;
@@ -110,6 +125,7 @@ function clearTurnTimer() {
     clearTimeout(turnTimer);
     turnTimer = null;
   }
+  turnStartedAt = null;
 }
 
 io.on('connection', (socket) => {
@@ -126,7 +142,7 @@ io.on('connection', (socket) => {
       color = existingSession.color;
       isSpectator = existingSession.isSpectator;
       isRejoin = true;
-      console.log(`🔄 ${trimmed} REJOINED`);
+      console.log(`🔄 ${trimmed} REJOINED (spectator: ${isSpectator})`);
     } else {
       color = getNextColor();
       isSpectator = gameStarted;
@@ -147,13 +163,17 @@ io.on('connection', (socket) => {
       socketId: socket.id
     };
 
+    // Send turn remaining seconds so client can sync countdown on rejoin
+    const turnRemaining = getTurnRemainingSeconds();
+
     socket.emit('joined', {
       playerId: socket.id,
       playerName: trimmed,
       playerColor: color,
       isSpectator,
       isRejoin,
-      sessionKey: key
+      sessionKey: key,
+      turnRemainingSeconds: turnRemaining
     });
 
     io.emit('player_joined', { name: trimmed, color, isSpectator, isRejoin });
@@ -288,11 +308,9 @@ io.on('connection', (socket) => {
         gameStarted = false;
         clearTurnTimer();
       } else if (activePlayers.length < 2) {
-        // Not enough players to continue — stop timer, don't start new one
         clearTurnTimer();
         broadcastState();
       } else if (wasCurrentTurn) {
-        // Disconnected player had the turn — restart timer for next player
         startTurnTimer();
         broadcastState();
       }
