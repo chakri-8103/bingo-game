@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://bingo-blaster-s5qp.onrender.com/sitemap.xml
