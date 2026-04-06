@@ -547,6 +547,21 @@
       .bl-letter{font-size:1.35rem;}
       .bc-right{display:none;}
     }
+
+    /* ══════════════════════════════
+       DRAW OVERLAY
+    ══════════════════════════════ */
+    #draw-overlay{position:fixed;inset:0;z-index:9001;display:flex;align-items:center;justify-content:center;
+      background:rgba(245,244,240,0.93);backdrop-filter:blur(6px);animation:overlayIn 0.5s ease both;}
+    #draw-overlay.hidden{display:none!important;}
+    .draw-modal{background:var(--surface);border:2px solid var(--border);border-radius:28px;padding:3rem 3.5rem;
+      text-align:center;max-width:480px;width:92%;box-shadow:0 30px 80px rgba(0,0,0,0.18);
+      animation:modalPop 0.55s cubic-bezier(0.16,1,0.3,1) both;position:relative;overflow:hidden;}
+    .draw-trophy{font-size:5rem;display:block;margin-bottom:0.5rem;}
+    .draw-word{font-family:var(--font-display);font-size:clamp(3rem,10vw,5.5rem);line-height:0.9;letter-spacing:4px;
+      color:var(--accent2);margin-bottom:0.6rem;}
+    .draw-sub{color:var(--text-dim);font-size:0.9rem;font-weight:600;margin-bottom:1.5rem;}
+    .draw-actions{display:flex;gap:0.75rem;justify-content:center;margin-top:0.5rem;}
   </style>
 </head>
 <body>
@@ -746,7 +761,6 @@
     <span class="bingo-trophy">🏆</span>
     <div class="bingo-word">BINGO!</div>
     <div class="bingo-winner-name" id="bingo-winner-name">Player wins!</div>
-    <div class="bingo-sub" id="bingo-sub">All B·I·N·G·O letters struck!</div>
     <div class="bingo-mini-card">
       <div class="bingo-mini-header"><div>B</div><div>I</div><div>N</div><div>G</div><div>O</div></div>
       <div class="bingo-mini-grid" id="bingo-mini-grid"></div>
@@ -754,6 +768,19 @@
     <div class="bingo-actions">
       <button class="bingo-btn primary" id="bingo-reset-btn">🔄 New Game</button>
       <button class="bingo-btn secondary" id="bingo-close-btn">Keep Playing</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ DRAW OVERLAY ══ -->
+<div id="draw-overlay" class="hidden">
+  <div class="draw-modal">
+    <span class="draw-trophy">🤝</span>
+    <div class="draw-word">DRAW!</div>
+    <div class="draw-sub">All 25 numbers called — it's a tie!</div>
+    <div class="draw-actions">
+      <button class="bingo-btn primary" id="draw-reset-btn">🔄 New Game</button>
     </div>
   </div>
 </div>
@@ -1055,15 +1082,28 @@ function resetLetterBoxes() {
   });
 }
 
-function showBingo(winnerName, winnerColor) {
+function showBingo(winners) {
+  // winners = [{ name, color }, ...]
   if (bingoShown) return;
   bingoShown = true;
   stopCountdown();
-  const isMe = winnerName === myName;
-  $('bingo-winner-name').innerHTML = isMe
-    ? `<span>YOU</span> got BINGO! 🎉`
-    : `<span style="color:${winnerColor}">${esc(winnerName)}</span> got BINGO!`;
-  $('bingo-sub').textContent = isMe ? 'All 5 B·I·N·G·O letters struck — you won!' : `${winnerName} struck all 5 letters!`;
+  const meWon = winners.some(w => w.name === myName);
+  let nameHtml = '';
+  if (winners.length === 1) {
+    const w = winners[0];
+    nameHtml = w.name === myName
+      ? `<span>YOU</span> got BINGO! 🎉`
+      : `<span style="color:${w.color}">${esc(w.name)}</span> got BINGO!`;
+  } else {
+    // Multiple winners
+    const parts = winners.map(w =>
+      w.name === myName
+        ? `<span>YOU</span>`
+        : `<span style="color:${w.color}">${esc(w.name)}</span>`
+    );
+    nameHtml = parts.join(' & ') + ' got BINGO! 🎉';
+  }
+  $('bingo-winner-name').innerHTML = nameHtml;
   buildMiniCard();
   $('bingo-overlay').classList.remove('hidden');
   launchConfetti();
@@ -1313,8 +1353,9 @@ socket.on('state_update', ({
     }
     prevStruckCount = newStruckCount;
     if (newStruckCount >= 5 && !amSpectator) {
-      showBingo(myName, myColor);
-      socket.emit('bingo_claimed', { playerName: myName });
+      const winnersList = [{ name: myName, color: myColor }];
+      showBingo(winnersList);
+      socket.emit('bingo_claimed', { winners: winnersList });
     }
   }
 });
@@ -1337,15 +1378,12 @@ socket.on('turn_timeout', ({playerName}) => {
   showToast(`⏰ ${playerName} was removed for being AFK!`, 'timeout', 5000);
 });
 
-socket.on('bingo_announced', ({playerName, playerColor}) => {
-  showToast(`🏆 BINGO! ${playerName} wins!`, 'bingo');
-  if (playerName !== myName && !bingoShown) {
-    bingoShown = true;
-    $('bingo-winner-name').innerHTML = `<span style="color:${playerColor}">${esc(playerName)}</span> got BINGO!`;
-    $('bingo-sub').textContent = `${playerName} struck all 5 letters!`;
-    buildMiniCard();
-    $('bingo-overlay').classList.remove('hidden');
-    launchConfetti();
+socket.on('bingo_announced', ({ winners }) => {
+  if (!winners || !winners.length) return;
+  const names = winners.map(w => w.name).join(' & ');
+  showToast(`🏆 BINGO! ${names} wins!`, 'bingo');
+  if (!bingoShown) {
+    showBingo(winners);
   }
 });
 
@@ -1364,6 +1402,7 @@ socket.on('game_reset', ({by}) => {
   stopCountdown();
 
   $('bingo-overlay').classList.add('hidden');
+  $('draw-overlay').classList.add('hidden');
   resetLetterBoxes();
 
   myCard = generateCard();
@@ -1380,6 +1419,15 @@ socket.on('error_msg', ({message}) => showToast(`⚠ ${message}`, 'info'));
 /* ── Controls ── */
 $('bingo-reset-btn').addEventListener('click', ()=>{ $('bingo-overlay').classList.add('hidden'); socket.emit('reset_game'); });
 $('bingo-close-btn').addEventListener('click', ()=>{ $('bingo-overlay').classList.add('hidden'); });
+$('draw-reset-btn').addEventListener('click', ()=>{ $('draw-overlay').classList.add('hidden'); socket.emit('reset_game'); });
+
+/* ── Draw event ── */
+socket.on('game_draw', () => {
+  stopCountdown();
+  bingoShown = true; // prevent bingo overlay too
+  $('draw-overlay').classList.remove('hidden');
+  showToast('🤝 Draw! All 25 numbers called — no winner!', 'info', 5000);
+});
 
 /* ── Helpers ── */
 function showToast(msg, type='info', duration=3200) {

@@ -10,23 +10,23 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─────────────────────────────────────────────────────────────
-// CORE IDEA: turnOrder stores SESSION KEYS (stable identifiers),
-// NOT socket IDs. Socket IDs are just a lookup: socketMap[socketId] = sessionKey.
-// This makes reconnect trivial — the slot never moves, no race conditions.
+// turnOrder stores SESSION KEYS (stable). socketMap is the lookup.
+// On refresh: grace period of 8s. If they rejoin within 8s -> slot kept.
+// If they don't rejoin within 8s -> removed from game.
 // ─────────────────────────────────────────────────────────────
 
-const sessions   = {};   // sessionKey → { name, color, isSpectator, socketId, calledNums }
+const sessions   = {};   // sessionKey → { name, color, isSpectator, socketId, calledNums, graceTimer }
 const socketMap  = {};   // socketId   → sessionKey
-const turnOrder  = [];   // [ sessionKey, ... ]  — permanent, never shuffled
+const turnOrder  = [];   // [ sessionKey, ... ] permanent stable slots
 let currentTurnIndex = 0;
 
-const selectedNumbers = [];  // { number, playerName, playerColor, timestamp, isBot? }
+const selectedNumbers = [];
 let gameStarted = false;
 
-// Turn timer
-let turnTimer    = null;
+let turnTimer     = null;
 let turnStartedAt = null;
-const TURN_TIMEOUT_MS = 60 * 1000;
+const TURN_TIMEOUT_MS  = 60 * 1000;
+const GRACE_PERIOD_MS  = 8 * 1000;   // 8s to rejoin before being removed
 
 // ── BOT ──
 const BOT_KEY   = '__bot__';
@@ -45,78 +45,71 @@ function getNextColor() {
   return PLAYER_COLORS[(colorIndex++) % PLAYER_COLORS.length];
 }
 
-// ── HELPERS ──────────────────────────────────────────────────
+// ── HELPERS ──
 
 function getCurrentTurnKey() {
-  if (turnOrder.length === 0) return null;
+  if (!turnOrder.length) return null;
   return turnOrder[currentTurnIndex % turnOrder.length];
 }
 
-// Get the socket for a session key (null if offline)
 function getSocket(key) {
-  const sess = sessions[key];
-  if (!sess || !sess.socketId) return null;
-  return io.sockets.sockets.get(sess.socketId) || null;
+  const s = sessions[key];
+  if (!s || !s.socketId) return null;
+  return io.sockets.sockets.get(s.socketId) || null;
 }
 
-// socketId → sessionKey
-function keyOf(socketId) {
-  return socketMap[socketId] || null;
-}
+function keyOf(socketId) { return socketMap[socketId] || null; }
 
 function getTurnRemainingSeconds() {
   if (!turnStartedAt) return 60;
   return Math.max(0, 60 - Math.floor((Date.now() - turnStartedAt) / 1000));
 }
 
-// Real (non-bot) non-spectator count in turnOrder
+// Non-bot active player count in turnOrder
 function getRealPlayerCount() {
   return turnOrder.filter(k => k !== BOT_KEY).length;
 }
 
-// Build player list for broadcast
 function buildPlayerList() {
-  const currentKey = getCurrentTurnKey();
+  const curKey = getCurrentTurnKey();
   return turnOrder.map(key => {
     if (key === BOT_KEY) {
       return { id: BOT_KEY, name: BOT_NAME, color: BOT_COLOR,
-               isSpectator: false, isCurrentTurn: key === currentKey, isBot: true };
+               isSpectator: false, isCurrentTurn: key === curKey, isBot: true };
     }
     const s = sessions[key];
     if (!s) return null;
-    // Use socketId as the "id" the client knows (for isMyTurn check)
     return { id: s.socketId || key, name: s.name, color: s.color,
-             isSpectator: false, isCurrentTurn: key === currentKey, isBot: false };
+             isSpectator: false, isCurrentTurn: key === curKey, isBot: false };
   }).filter(Boolean);
 }
 
-// Spectators — connected but not in turnOrder
 function buildSpectatorList() {
   return Object.entries(sessions)
     .filter(([k, s]) => s.isSpectator && s.socketId)
-    .map(([k, s]) => ({
-      id: s.socketId, name: s.name, color: s.color,
-      isSpectator: true, isCurrentTurn: false, isBot: false
-    }));
+    .map(([k, s]) => ({ id: s.socketId, name: s.name, color: s.color,
+                        isSpectator: true, isCurrentTurn: false, isBot: false }));
 }
 
 function broadcastState() {
-  const activePlayers = buildPlayerList();
-  const spectators    = buildSpectatorList();
-  const allPlayers    = [...activePlayers, ...spectators];
-  const activeCount   = activePlayers.length;
+  const active   = buildPlayerList();
+  const specs    = buildSpectatorList();
+  const all      = [...active, ...specs];
+  const actCount = active.length;
+
+  let turnPlayerId = null;
+  if (actCount >= 2) {
+    const k = getCurrentTurnKey();
+    if (k === BOT_KEY) turnPlayerId = BOT_KEY;
+    else { const s = sessions[k]; turnPlayerId = s ? s.socketId : null; }
+  }
 
   io.emit('state_update', {
     selectedNumbers,
-    players: allPlayers,
-    playerCount: allPlayers.filter(p => !p.isBot).length,
-    activePlayerCount: activeCount,
-    currentTurnPlayerId: activeCount >= 2 ? (() => {
-      const key = getCurrentTurnKey();
-      if (key === BOT_KEY) return BOT_KEY;
-      const s = sessions[key];
-      return s ? s.socketId : null;
-    })() : null,
+    players: all,
+    playerCount: all.filter(p => !p.isBot).length,
+    activePlayerCount: actCount,
+    currentTurnPlayerId: turnPlayerId,
     gameStarted,
     turnRemainingSeconds: getTurnRemainingSeconds(),
     botActive
@@ -127,7 +120,15 @@ function makeSessionKey(name) {
   return name.trim().toLowerCase().replace(/\s+/g, '_');
 }
 
-// ── BOT ──────────────────────────────────────────────────────
+// ── Check draw after every number ──
+function checkDraw() {
+  if (selectedNumbers.length < 25) return false;
+  // All 25 called — game is a draw (server doesn't track cards, client detects winners)
+  // We just signal the end; clients will have already detected their own bingo if any
+  return true;
+}
+
+// ── BOT ──
 
 function cancelBotTurn() {
   if (botTurnTimer) { clearTimeout(botTurnTimer); botTurnTimer = null; }
@@ -136,29 +137,29 @@ function cancelBotTurn() {
 function scheduleBotTurn() {
   cancelBotTurn();
   if (!botActive || getCurrentTurnKey() !== BOT_KEY) return;
-
   const delay = 2000 + Math.random() * 2000;
   botTurnTimer = setTimeout(() => {
     if (!botActive || getCurrentTurnKey() !== BOT_KEY) return;
-
     const available = [];
     for (let n = 1; n <= 25; n++) {
       if (!selectedNumbers.some(s => s.number === n)) available.push(n);
     }
-    if (available.length === 0) return;
+    if (!available.length) return;
     const num = available[Math.floor(Math.random() * available.length)];
-
     if (!gameStarted) gameStarted = true;
     selectedNumbers.push({ number: num, playerName: BOT_NAME,
                            playerColor: BOT_COLOR, timestamp: Date.now(), isBot: true });
-
     currentTurnIndex = (currentTurnIndex + 1) % turnOrder.length;
     startTurnTimer();
-
     io.emit('number_called', { number: num, playerName: BOT_NAME,
                                playerColor: BOT_COLOR, isBot: true });
+    // Check draw
+    if (checkDraw()) {
+      clearTurnTimer(); cancelBotTurn();
+      io.emit('game_draw', {});
+      return;
+    }
     broadcastState();
-
     if (getCurrentTurnKey() === BOT_KEY) scheduleBotTurn();
   }, delay);
 }
@@ -169,7 +170,7 @@ function addBot() {
   sessions[BOT_KEY] = { name: BOT_NAME, color: BOT_COLOR,
                         isSpectator: false, socketId: BOT_KEY };
   if (!turnOrder.includes(BOT_KEY)) turnOrder.push(BOT_KEY);
-  console.log('🤖 Bot added, turnOrder:', turnOrder);
+  console.log('🤖 Bot added');
 }
 
 function removeBot() {
@@ -183,11 +184,9 @@ function removeBot() {
     if (turnOrder.length > 0) {
       if (idx < currentTurnIndex) currentTurnIndex--;
       currentTurnIndex = Math.max(0, currentTurnIndex % Math.max(turnOrder.length, 1));
-    } else {
-      currentTurnIndex = 0;
-    }
+    } else currentTurnIndex = 0;
   }
-  console.log('🤖 Bot removed, turnOrder:', turnOrder);
+  console.log('🤖 Bot removed');
 }
 
 function checkAndManageBot() {
@@ -200,7 +199,68 @@ function checkAndManageBot() {
   }
 }
 
-// ── TURN TIMER ────────────────────────────────────────────────
+// ── REMOVE PLAYER (grace expired or AFK kick) ──
+function removePlayerFromGame(key, reason) {
+  const sess = sessions[key];
+  if (!sess) return;
+
+  const name  = sess.name;
+  const color = sess.color;
+
+  // Cancel any pending grace timer
+  if (sess.graceTimer) { clearTimeout(sess.graceTimer); sess.graceTimer = null; }
+
+  // Remove socket mapping
+  if (sess.socketId && sess.socketId !== BOT_KEY) delete socketMap[sess.socketId];
+
+  // Remove from turnOrder
+  const idx = turnOrder.indexOf(key);
+  const wasCurrentTurn = idx !== -1 && (currentTurnIndex % Math.max(turnOrder.length, 1)) === idx;
+
+  if (idx !== -1) {
+    turnOrder.splice(idx, 1);
+    if (turnOrder.length > 0) {
+      if (idx < currentTurnIndex) currentTurnIndex--;
+      else if (idx === currentTurnIndex) currentTurnIndex = currentTurnIndex % turnOrder.length;
+      currentTurnIndex = Math.max(0, currentTurnIndex % Math.max(turnOrder.length, 1));
+    } else currentTurnIndex = 0;
+  }
+
+  delete sessions[key];
+
+  io.emit('player_left', { name, color });
+  console.log(`🗑 ${name} removed (${reason})`);
+
+  const real = getRealPlayerCount();
+
+  if (real === 0) {
+    selectedNumbers.length = 0; currentTurnIndex = 0; gameStarted = false;
+    turnOrder.length = 0; if (botActive) removeBot();
+    broadcastState(); return;
+  }
+
+  if (real === 1 && gameStarted) {
+    // Only 1 real player left mid-game — reset
+    selectedNumbers.length = 0; currentTurnIndex = 0; gameStarted = false;
+    Object.values(sessions).forEach(s => { s.isSpectator = false; });
+    io.emit('game_reset', { by: `auto (${name} left)` });
+    checkAndManageBot(); broadcastState(); return;
+  }
+
+  checkAndManageBot();
+
+  if (wasCurrentTurn) {
+    clearTurnTimer();
+    if (turnOrder.length >= 2) {
+      if (getCurrentTurnKey() === BOT_KEY) scheduleBotTurn();
+      else startTurnTimer();
+    }
+  }
+
+  broadcastState();
+}
+
+// ── TURN TIMER ──
 
 function clearTurnTimer() {
   if (turnTimer) { clearTimeout(turnTimer); turnTimer = null; }
@@ -221,142 +281,104 @@ function startTurnTimer() {
   const sess = sessions[key];
   if (!sess) return;
 
+  // If player is currently offline (in grace period), pause — they'll resume on rejoin
+  if (!sess.socketId) {
+    console.log(`  Turn paused — ${sess.name} is offline (grace period)`);
+    return;
+  }
+
   turnStartedAt = Date.now();
 
   turnTimer = setTimeout(() => {
     const s = sessions[key];
-    if (!s) return; // already removed
-
-    const afkName  = s.name;
-    const afkColor = s.color;
-    console.log(`⏰ Timeout for ${afkName}`);
-
+    if (!s) return;
+    const afkName = s.name;
+    console.log(`⏰ AFK timeout: ${afkName}`);
     io.emit('turn_timeout', { playerName: afkName });
-
-    // Kick their socket
     const sock = getSocket(key);
     if (sock) {
       sock.emit('force_logout', { reason: 'You were removed for not playing within 60 seconds.' });
       sock.disconnect(true);
     }
-
-    // Remove from turnOrder and sessions
-    const idx = turnOrder.indexOf(key);
-    if (idx !== -1) {
-      turnOrder.splice(idx, 1);
-      if (turnOrder.length > 0) {
-        currentTurnIndex = idx % turnOrder.length;
-      } else {
-        currentTurnIndex = 0;
-      }
-    }
-    if (s.socketId) delete socketMap[s.socketId];
-    delete sessions[key];
-
-    io.emit('player_left', { name: afkName, color: afkColor });
-
-    const real = getRealPlayerCount();
-    if (real === 0) {
-      selectedNumbers.length = 0; currentTurnIndex = 0; gameStarted = false;
-      turnOrder.length = 0; if (botActive) removeBot();
-      broadcastState(); return;
-    }
-    if (real === 1) {
-      selectedNumbers.length = 0; currentTurnIndex = 0; gameStarted = false;
-      Object.values(sessions).forEach(s => { s.isSpectator = false; });
-      io.emit('game_reset', { by: `auto (${afkName} timed out)` });
-      checkAndManageBot(); broadcastState(); return;
-    }
-    if (getCurrentTurnKey() === BOT_KEY) scheduleBotTurn();
-    else startTurnTimer();
-    broadcastState();
+    removePlayerFromGame(key, 'AFK timeout');
   }, TURN_TIMEOUT_MS);
 }
 
-// ── CONNECTION HANDLER ────────────────────────────────────────
+// ── CONNECTION ──
 
 io.on('connection', (socket) => {
 
   socket.on('join', ({ name, sessionKey }) => {
     const trimmed = name.trim().slice(0, 20) || 'Anonymous';
     const key     = sessionKey || makeSessionKey(trimmed);
-
     const existing = sessions[key];
     let color, isSpectator, isRejoin = false;
 
     if (existing && key !== BOT_KEY) {
-      // ── REJOIN ──────────────────────────────────────────────
-      // The slot in turnOrder never moves — it's already there with the session key.
-      // All we do is update the socket mapping.
+      // ── REJOIN ──
       color       = existing.color;
       isSpectator = existing.isSpectator;
       isRejoin    = true;
+
+      // Cancel grace timer — they made it back in time
+      if (existing.graceTimer) {
+        clearTimeout(existing.graceTimer);
+        existing.graceTimer = null;
+        console.log(`  ↳ Grace timer cancelled — ${trimmed} rejoined in time`);
+      }
 
       // Unmap old socket
       if (existing.socketId && existing.socketId !== socket.id) {
         delete socketMap[existing.socketId];
       }
-
-      // Map new socket → key
       existing.socketId = socket.id;
       socketMap[socket.id] = key;
 
-      console.log(`🔄 ${trimmed} REJOINED — slot preserved at [${turnOrder.indexOf(key)}], currentTurnIndex=${currentTurnIndex}, currentTurn=${getCurrentTurnKey()}`);
+      console.log(`🔄 ${trimmed} REJOINED — slot [${turnOrder.indexOf(key)}] idx=${currentTurnIndex} cur=${getCurrentTurnKey()}`);
 
-    } else {
-      // ── NEW PLAYER ──────────────────────────────────────────
-      color       = getNextColor();
-      isSpectator = gameStarted && getRealPlayerCount() >= 2;
-
-      sessions[key] = { name: trimmed, color, isSpectator,
-                        socketId: socket.id, calledNums: [] };
-      socketMap[socket.id] = key;
-
-      if (!isSpectator && !turnOrder.includes(key)) {
-        turnOrder.push(key);
+      // If it was their turn and timer was paused (they were offline), restart it
+      if (getCurrentTurnKey() === key && !turnTimer && gameStarted) {
+        console.log(`  ↳ Resuming their turn timer`);
+        startTurnTimer();
       }
 
-      console.log(`✅ ${trimmed} joined${isSpectator ? ' (spectator)' : ''}, turnOrder:`, turnOrder);
+    } else {
+      // ── NEW PLAYER ──
+      color       = getNextColor();
+      isSpectator = gameStarted && getRealPlayerCount() >= 2;
+      sessions[key] = { name: trimmed, color, isSpectator,
+                        socketId: socket.id, calledNums: [], graceTimer: null };
+      socketMap[socket.id] = key;
+      if (!isSpectator && !turnOrder.includes(key)) turnOrder.push(key);
+      console.log(`✅ ${trimmed} joined${isSpectator ? ' (spectator)' : ''} turnOrder:`, turnOrder);
     }
 
     checkAndManageBot();
 
     socket.emit('joined', {
-      playerId:             socket.id,
-      playerName:           trimmed,
-      playerColor:          color,
-      isSpectator,
-      isRejoin,
-      sessionKey:           key,
+      playerId: socket.id, playerName: trimmed, playerColor: color,
+      isSpectator, isRejoin, sessionKey: key,
       turnRemainingSeconds: getTurnRemainingSeconds()
     });
 
     io.emit('player_joined', { name: trimmed, color, isSpectator, isRejoin });
 
-    // Ensure timer/bot is running if needed
     const curKey = getCurrentTurnKey();
-    if (gameStarted && curKey && curKey !== BOT_KEY && !turnTimer) {
-      startTurnTimer();
-    }
-    if (botActive && curKey === BOT_KEY && !botTurnTimer) {
-      scheduleBotTurn();
-    }
+    if (gameStarted && curKey && curKey !== BOT_KEY && !turnTimer) startTurnTimer();
+    if (botActive && curKey === BOT_KEY && !botTurnTimer) scheduleBotTurn();
 
     broadcastState();
   });
 
   socket.on('submit_number', ({ number }) => {
-    const key = keyOf(socket.id);
-    if (!key) return;
-    const sess = sessions[key];
+    const key  = keyOf(socket.id);
+    const sess = key ? sessions[key] : null;
     if (!sess || sess.isSpectator) {
-      socket.emit('error_msg', { message: '👀 You joined mid-game — spectator only!' });
-      return;
+      socket.emit('error_msg', { message: '👀 Spectator only!' }); return;
     }
-
     const num = parseInt(number, 10);
     if (isNaN(num) || num < 1 || num > 25) {
-      socket.emit('error_msg', { message: '⚠ Number must be between 1 and 25!' }); return;
+      socket.emit('error_msg', { message: '⚠ Number must be 1-25!' }); return;
     }
     if (selectedNumbers.some(n => n.number === num)) {
       socket.emit('error_msg', { message: `⚠ ${num} already called!` }); return;
@@ -365,9 +387,8 @@ io.on('connection', (socket) => {
       socket.emit('error_msg', { message: "⏳ Not your turn!" }); return;
     }
     if (buildPlayerList().length < 2) {
-      socket.emit('error_msg', { message: '⏳ Waiting for another player!' }); return;
+      socket.emit('error_msg', { message: '⏳ Need another player!' }); return;
     }
-
     if (!gameStarted) gameStarted = true;
 
     selectedNumbers.push({ number: num, playerName: sess.name,
@@ -378,19 +399,26 @@ io.on('connection', (socket) => {
     startTurnTimer();
 
     io.emit('number_called', { number: num, playerName: sess.name, playerColor: sess.color });
+
+    // Check draw after all 25 numbers called
+    if (checkDraw()) {
+      clearTurnTimer(); cancelBotTurn();
+      io.emit('game_draw', {});
+      return;
+    }
+
     broadcastState();
-
     if (getCurrentTurnKey() === BOT_KEY) scheduleBotTurn();
-
-    console.log(`  [submit by ${sess.name}] next: ${getCurrentTurnKey()} (idx ${currentTurnIndex})`);
+    console.log(`  [${sess.name} called ${num}] next: ${getCurrentTurnKey()} idx=${currentTurnIndex}`);
   });
 
-  socket.on('bingo_claimed', () => {
+  socket.on('bingo_claimed', ({ winners }) => {
     const key  = keyOf(socket.id);
     const sess = key ? sessions[key] : null;
     if (!sess) return;
     clearTurnTimer(); cancelBotTurn();
-    io.emit('bingo_announced', { playerName: sess.name, playerColor: sess.color });
+    // winners is an array of { name, color } from client
+    io.emit('bingo_announced', { winners: winners || [{ name: sess.name, color: sess.color }] });
   });
 
   socket.on('reset_game', () => {
@@ -399,27 +427,25 @@ io.on('connection', (socket) => {
     if (!sess) return;
 
     clearTurnTimer(); cancelBotTurn();
-    selectedNumbers.length = 0;
-    currentTurnIndex = 0;
-    gameStarted = false;
+    selectedNumbers.length = 0; currentTurnIndex = 0; gameStarted = false;
 
-    // Move all spectators into turnOrder
+    // Move all spectators back into turnOrder
     Object.entries(sessions).forEach(([k, s]) => {
       if (k === BOT_KEY) return;
       s.isSpectator = false;
       if (!turnOrder.includes(k)) turnOrder.push(k);
     });
 
-    if (botActive) { removeBot(); }
+    if (botActive) removeBot();
     checkAndManageBot();
 
     io.emit('game_reset', { by: sess.name });
     broadcastState();
-    console.log(`🔄 Reset by ${sess.name}, turnOrder:`, turnOrder);
+    console.log(`🔄 Reset by ${sess.name} turnOrder:`, turnOrder);
   });
 
   socket.on('disconnect', () => {
-    const key = keyOf(socket.id);
+    const key  = keyOf(socket.id);
     if (!key || key === BOT_KEY) return;
 
     const sess = sessions[key];
@@ -428,88 +454,31 @@ io.on('connection', (socket) => {
     console.log(`👋 ${sess.name} disconnected (${socket.id})`);
     io.emit('player_left', { name: sess.name, color: sess.color });
 
-    // Mark offline — but KEEP the session and KEEP the slot in turnOrder
+    // Mark offline
     sess.socketId = null;
     delete socketMap[socket.id];
 
-    // Session expires after 30 min if they don't come back
-    setTimeout(() => {
-      const s = sessions[key];
-      if (s && !s.socketId) {
-        // Remove from turnOrder too
-        const idx = turnOrder.indexOf(key);
-        if (idx !== -1) {
-          turnOrder.splice(idx, 1);
-          if (turnOrder.length > 0) {
-            if (idx < currentTurnIndex) currentTurnIndex--;
-            currentTurnIndex = Math.max(0, currentTurnIndex % Math.max(turnOrder.length, 1));
-          } else {
-            currentTurnIndex = 0;
-          }
-        }
-        delete sessions[key];
-        console.log(`🗑 Session expired: ${s.name}`);
-        checkAndManageBot();
-        broadcastState();
-      }
-    }, 30 * 60 * 1000);
-
-    // Turn handling on disconnect:
-    // - If it was THEIR turn: DON'T advance. Just pause the timer.
-    //   They are likely refreshing and will reconnect in seconds.
-    //   Their slot stays at currentTurnIndex — they get their turn back on rejoin.
-    // - If it was ANOTHER player's turn: advance past this slot IF we happen to
-    //   land on this offline slot later (handled in advancePastOffline).
+    // If it was their turn, pause the turn timer (don't advance yet — give grace period)
     const wasMyTurn = getCurrentTurnKey() === key;
     if (wasMyTurn) {
-      // Pause turn — don't advance, don't start timer for next player.
-      // Rejoin will resume from the same slot.
       clearTurnTimer();
       cancelBotTurn();
-    } else {
-      // It's another player's turn — if that player is online, timer keeps running.
-      // No action needed; timer is already running for them.
-      // But if somehow we need to skip this slot later, advancePastOffline handles it.
+      console.log(`  Turn paused — waiting ${GRACE_PERIOD_MS/1000}s grace period for ${sess.name}`);
     }
 
-    checkAndManageBot();
+    // Start grace period — if they don't rejoin within GRACE_PERIOD_MS, remove them
+    sess.graceTimer = setTimeout(() => {
+      const s = sessions[key];
+      if (s && !s.socketId) {
+        console.log(`  Grace expired for ${s.name} — removing from game`);
+        removePlayerFromGame(key, 'grace period expired (left game)');
+      }
+    }, GRACE_PERIOD_MS);
+
     broadcastState();
-    console.log(`  turnOrder: [${turnOrder.join(', ')}]  idx: ${currentTurnIndex}  currentTurn: ${getCurrentTurnKey()}`);
+    console.log(`  [disconnect] turnOrder: [${turnOrder.join(',')}] idx: ${currentTurnIndex} cur: ${getCurrentTurnKey()}`);
   });
 });
-
-// Skip past any offline players whose socket is null
-// Called when current turn player goes offline mid-turn
-function advancePastOffline() {
-  if (turnOrder.length === 0) return;
-
-  // Try each slot once to find an online player
-  let attempts = 0;
-  while (attempts < turnOrder.length) {
-    const key = getCurrentTurnKey();
-    if (!key) break;
-
-    // Bot is always "online"
-    if (key === BOT_KEY) {
-      startTurnTimer(); // will call scheduleBotTurn
-      return;
-    }
-
-    const sess = sessions[key];
-    if (sess && sess.socketId) {
-      // This player is online — their turn
-      startTurnTimer();
-      return;
-    }
-
-    // Offline — skip
-    currentTurnIndex = (currentTurnIndex + 1) % turnOrder.length;
-    attempts++;
-  }
-
-  // All players offline (shouldn't happen normally)
-  console.log('  All players offline, pausing turns');
-}
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
