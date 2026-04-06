@@ -129,6 +129,45 @@
     .pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--accent3);display:inline-block;animation:pulse 2s infinite;}
     @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(5,150,105,0.5);}50%{box-shadow:0 0 0 5px rgba(5,150,105,0);}}
 
+    /* ── LOGOUT BUTTON ── */
+    #logout-btn {
+      display:flex; align-items:center; justify-content:center;
+      width:34px; height:34px;
+      background:transparent;
+      border:1.5px solid var(--border);
+      border-radius:8px;
+      cursor:pointer;
+      color:var(--text-dim);
+      transition:all 0.2s;
+      position:relative;
+    }
+    #logout-btn:hover {
+      border-color:#EF4444;
+      color:#EF4444;
+      background:#FEF2F2;
+      transform:translateY(-1px);
+      box-shadow:0 3px 10px rgba(239,68,68,0.18);
+    }
+    #logout-btn svg { width:16px; height:16px; }
+    #logout-btn::after {
+      content:'Logout';
+      position:absolute;
+      bottom:-28px; left:50%;
+      transform:translateX(-50%);
+      background:rgba(26,23,20,0.85);
+      color:#fff;
+      font-size:0.62rem;
+      font-family:var(--font-mono);
+      letter-spacing:0.1em;
+      padding:0.2rem 0.5rem;
+      border-radius:4px;
+      white-space:nowrap;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity 0.15s;
+    }
+    #logout-btn:hover::after { opacity:1; }
+
     /* Turn countdown pill */
     #turn-countdown-pill{
       display:none; align-items:center; gap:0.4rem;
@@ -143,6 +182,23 @@
 
     #turn-banner{padding:0.5rem 1.5rem;text-align:center;font-family:var(--font-display);font-size:0.95rem;letter-spacing:2px;animation:bannerPulse 1.5s ease-in-out infinite;}
     @keyframes bannerPulse{0%,100%{opacity:1;}50%{opacity:0.85;}}
+
+    /* ══════════════════════════════
+       BOT BANNER
+    ══════════════════════════════ */
+    #bot-banner {
+      display:none;
+      background:linear-gradient(90deg,#F5F3FF 0%,#EDE9FE 40%,#EDE9FE 60%,#F5F3FF 100%);
+      border-bottom:1.5px solid #C4B5FD;
+      padding:0.5rem 1.5rem;
+      text-align:center;
+      font-size:0.8rem;
+      color:#5B21B6;
+      font-weight:600;
+      letter-spacing:0.05em;
+    }
+    #bot-banner.visible { display:block; }
+    #bot-banner span { opacity:0.7; font-size:0.72rem; }
 
     /* ══════════════════════════════
        SPECTATOR BANNER — LIGHT MODE
@@ -240,6 +296,9 @@
       font-size:0.6rem; letter-spacing:0.18em; color:var(--accent); text-transform:uppercase;
     }
 
+    /* Bot player badge in players list */
+    .bot-tag{font-size:0.58rem;background:#EDE9FE;color:#5B21B6;border:1px solid #C4B5FD;border-radius:4px;padding:0.1rem 0.35rem;font-family:var(--font-mono);letter-spacing:0.1em;}
+
     /* ══════════════════════════════
        LATEST NUMBER
     ══════════════════════════════ */
@@ -324,6 +383,7 @@
       background:var(--surface2);border-radius:8px;border:1.5px solid var(--border);
       font-size:0.84rem;font-weight:600;animation:slideInRight 0.3s both;transition:border-color 0.3s;}
     .player-item.is-turn{border-color:var(--accent2);background:#EFF6FF;}
+    .player-item.is-bot{border-color:#C4B5FD;background:#F5F3FF;}
     .player-item .p-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
     .player-item .p-name{flex:1;}
     .player-item .turn-tag{font-size:0.67rem;background:var(--accent2);color:#fff;border-radius:4px;padding:0.1rem 0.35rem;font-weight:800;}
@@ -344,8 +404,34 @@
     .toast.bingo  {border-left:4px solid #FF6B6B;background:#FFF0F0;}
     .toast.rejoin {border-left:4px solid var(--accent2);}
     .toast.timeout{border-left:4px solid #F59E0B;background:#FFFBEB;}
+    .toast.bot    {border-left:4px solid #8B5CF6;background:#F5F3FF;}
     @keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(0.95);}to{opacity:1;transform:translateY(0) scale(1);}}
     @keyframes toastOut{from{opacity:1;}to{opacity:0;transform:translateY(10px);}}
+
+    /* ══════════════════════════════
+       LOGOUT CONFIRM MODAL
+    ══════════════════════════════ */
+    #logout-confirm {
+      position:fixed; inset:0; z-index:99998;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(245,244,240,0.93); backdrop-filter:blur(8px);
+    }
+    #logout-confirm.hidden{display:none!important;}
+    .logout-card {
+      background:var(--surface); border:1.5px solid var(--border);
+      border-radius:18px; padding:2rem 2.5rem; text-align:center;
+      max-width:360px; width:90%; box-shadow:var(--shadow-lg);
+      animation:cardPop 0.4s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .logout-icon{font-size:2.5rem;display:block;margin-bottom:0.7rem;}
+    .logout-title{font-family:var(--font-display);font-size:1.4rem;color:var(--text);margin-bottom:0.4rem;letter-spacing:1px;}
+    .logout-sub{color:var(--text-dim);font-size:0.82rem;margin-bottom:1.6rem;line-height:1.5;}
+    .logout-btns{display:flex;gap:0.7rem;justify-content:center;}
+    .logout-btn{font-family:'Black Han Sans',sans-serif;font-size:0.88rem;padding:0.7rem 1.5rem;border-radius:8px;border:none;cursor:pointer;letter-spacing:1px;transition:all 0.2s;}
+    .logout-btn.confirm{background:#EF4444;color:#fff;}
+    .logout-btn.confirm:hover{background:#DC2626;transform:translateY(-2px);box-shadow:0 4px 16px rgba(239,68,68,0.3);}
+    .logout-btn.cancel{background:transparent;color:var(--text-dim);border:1.5px solid var(--border);}
+    .logout-btn.cancel:hover{border-color:var(--text-dim);color:var(--text);}
 
     /* ══════════════════════════════
        BINGO OVERLAY
@@ -454,10 +540,23 @@
       <div id="turn-countdown-pill">
         ⏱ <span id="turn-countdown-val">60</span>s
       </div>
+      <!-- LOGOUT BUTTON -->
+      <button id="logout-btn" title="Logout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
     </div>
   </header>
 
   <div id="turn-banner" class="hidden"><span id="turn-text"></span></div>
+
+  <!-- ══ BOT BANNER ══ -->
+  <div id="bot-banner">
+    🤖 Playing against <strong>BingoBot</strong> — invite a friend to replace the bot! <span>Bot joins automatically when you're the only player.</span>
+  </div>
 
   <!-- ══ SPECTATOR BANNER ══ -->
   <div id="spectator-banner">
@@ -588,6 +687,19 @@
   </div>
 </div>
 
+<!-- ══ LOGOUT CONFIRM MODAL ══ -->
+<div id="logout-confirm" class="hidden">
+  <div class="logout-card">
+    <span class="logout-icon">🚪</span>
+    <div class="logout-title">LOGOUT?</div>
+    <div class="logout-sub">This will clear your session and return you to the join screen. Your current game progress will be lost.</div>
+    <div class="logout-btns">
+      <button class="logout-btn confirm" id="logout-confirm-btn">Yes, Logout</button>
+      <button class="logout-btn cancel" id="logout-cancel-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════
@@ -596,6 +708,8 @@
    ✅ Timer syncs from server on page reload
    ✅ Spectator stays spectator on mobile refresh
    ✅ Spectator mobile continuous-refresh fix
+   ✅ Bot support — auto joins when only 1 player
+   ✅ Logout button — clears localStorage & reloads
 ═══════════════════════════════════════════════════════ */
 
 const socket = io();
@@ -610,6 +724,7 @@ let currentTurnPlayerId = null;
 let amSpectator = false;
 let mySessionKey = null;
 let activePlayerCount = 0;
+let isBotActive = false;
 
 // Client-side countdown — synced from server
 let countdownInterval = null;
@@ -639,6 +754,23 @@ function loadSession() {
 function clearSession() {
   try { localStorage.removeItem(LS_KEY); } catch(e) {}
 }
+
+/* ══════════════════════════════════
+   LOGOUT
+══════════════════════════════════ */
+$('logout-btn').addEventListener('click', () => {
+  $('logout-confirm').classList.remove('hidden');
+});
+$('logout-cancel-btn').addEventListener('click', () => {
+  $('logout-confirm').classList.add('hidden');
+});
+$('logout-confirm-btn').addEventListener('click', () => {
+  clearSession();
+  // Disconnect socket gracefully
+  socket.disconnect();
+  // Reload to fresh join screen
+  window.location.reload();
+});
 
 /* ══════════════════════════════════
    COUNTDOWN PILL
@@ -681,11 +813,25 @@ function updateWaitingOverlay(count) {
   // Spectators never see the waiting overlay — they're watching
   if (amSpectator) { overlay.classList.add('hidden'); return; }
   if (countEl) countEl.textContent = count;
+  // Bot counts as a second player, so no waiting overlay if bot is active
   if (count < 2) {
     overlay.classList.remove('hidden');
     stopCountdown();
   } else {
     overlay.classList.add('hidden');
+  }
+}
+
+/* ══════════════════════════════════
+   BOT BANNER
+══════════════════════════════════ */
+function updateBotBanner(botActive) {
+  const banner = $('bot-banner');
+  if (!banner) return;
+  if (botActive && !amSpectator) {
+    banner.classList.add('visible');
+  } else {
+    banner.classList.remove('visible');
   }
 }
 
@@ -935,9 +1081,7 @@ socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, 
   }
 
   // Sync countdown from server on rejoin/reload
-  // (will be properly set again in state_update, but this gives immediate feedback)
   if (!isSpectator && turnRemainingSeconds > 0) {
-    // Don't start here — wait for state_update to confirm we're in a live game
     countdownSeconds = turnRemainingSeconds;
   }
 
@@ -952,17 +1096,22 @@ socket.on('state_update', ({
   activePlayerCount: activeCnt,
   currentTurnPlayerId: turnId,
   gameStarted,
-  turnRemainingSeconds
+  turnRemainingSeconds,
+  botActive
 }) => {
   calledNumbers       = nums;
   calledSet           = new Set(nums.map(n=>n.number));
   currentTurnPlayerId = turnId;
   activePlayerCount   = activeCnt || 0;
+  isBotActive         = !!botActive;
 
   $('player-count').textContent = count;
 
   // Update waiting overlay
   updateWaitingOverlay(activePlayerCount);
+
+  // Update bot banner
+  updateBotBanner(isBotActive);
 
   // Spectator stats
   if (amSpectator) {
@@ -981,8 +1130,11 @@ socket.on('state_update', ({
       tb.style.cssText = 'background:linear-gradient(90deg,#FDE8DF,#FEE2E2);color:#C2410C;border-bottom:2px solid #FDBA74;';
     } else {
       const p = players.find(p=>p.id===turnId);
-      tt.textContent = p ? `⏳ Waiting for ${p.name}...` : '⏳ Waiting...';
-      tb.style.cssText = 'background:#EFF6FF;color:#1D4ED8;border-bottom:2px solid #BFDBFE;';
+      const isBotTurn = p && p.isBot;
+      tt.textContent = p ? (isBotTurn ? `🤖 BingoBot is thinking...` : `⏳ Waiting for ${p.name}...`) : '⏳ Waiting...';
+      tb.style.cssText = isBotTurn
+        ? 'background:#F5F3FF;color:#5B21B6;border-bottom:2px solid #C4B5FD;'
+        : 'background:#EFF6FF;color:#1D4ED8;border-bottom:2px solid #BFDBFE;';
     }
   } else {
     tb.classList.add('hidden');
@@ -1029,29 +1181,31 @@ socket.on('state_update', ({
   pl.innerHTML = '';
   players.forEach(p => {
     const el = document.createElement('div');
-    el.className = 'player-item'+(p.isCurrentTurn?' is-turn':'');
+    el.className = 'player-item'+(p.isCurrentTurn?' is-turn':'')+(p.isBot?' is-bot':'');
     const youTag  = p.id===myId ? ' <span style="opacity:0.4;font-size:0.72rem">(you)</span>' : '';
-    const rightTag= p.isSpectator
-      ? '<span class="spec-watch-tag">👀 WATCH</span>'
-      : p.isCurrentTurn ? '<span class="turn-tag">TURN</span>' : '';
+    let rightTag = '';
+    if (p.isBot) {
+      rightTag = '<span class="bot-tag">🤖 BOT</span>';
+    } else if (p.isSpectator) {
+      rightTag = '<span class="spec-watch-tag">👀 WATCH</span>';
+    } else if (p.isCurrentTurn) {
+      rightTag = '<span class="turn-tag">TURN</span>';
+    }
     el.innerHTML=`<div class="p-dot" style="background:${p.color}"></div><div class="p-name">${esc(p.name)}${youTag}</div>${rightTag}`;
     pl.appendChild(el);
   });
 
   // ── COUNTDOWN SYNC ──
-  // Always sync countdown from server's authoritative remaining seconds.
-  // This fixes the timer-reset-on-reload bug for both players and spectators.
   if (gameStarted && turnId && activePlayerCount >= 2) {
-    // Only restart if the turn changed OR we don't have a running countdown
-    // Check if the current countdown is out of sync by more than 3 seconds
-    if (!countdownInterval) {
-      // No countdown running — start one synced to server
+    // Don't show countdown during bot's turn (bot moves fast)
+    const currentPlayer = players.find(p => p.id === turnId);
+    if (currentPlayer && currentPlayer.isBot) {
+      stopCountdown();
+    } else if (!countdownInterval) {
       startCountdown(turnRemainingSeconds != null ? turnRemainingSeconds : 60);
     } else {
-      // Countdown running — check if it's significantly off from server
       const serverSecs = turnRemainingSeconds != null ? turnRemainingSeconds : countdownSeconds;
       if (Math.abs(countdownSeconds - serverSecs) > 3) {
-        // Re-sync
         startCountdown(serverSecs);
       }
     }
@@ -1076,12 +1230,16 @@ socket.on('state_update', ({
   }
 });
 
-socket.on('number_called', ({number, playerName}) => {
+socket.on('number_called', ({number, playerName, isBot}) => {
   const ld = $('latest-display');
   ld.classList.remove('pop');
   void ld.offsetWidth;
   ld.classList.add('pop');
-  showToast(`🎱 ${number} called by ${playerName}!`, 'number');
+  if (isBot) {
+    showToast(`🤖 BingoBot called ${number}!`, 'bot');
+  } else {
+    showToast(`🎱 ${number} called by ${playerName}!`, 'number');
+  }
   // Reset local countdown to 60; state_update will re-sync from server
   countdownSeconds = 60;
 });
@@ -1117,12 +1275,7 @@ socket.on('game_reset', ({by}) => {
   calledNumbers = [];
   stopCountdown();
 
-  // ── KEY FIX: game_reset makes ALL players active (no more spectators)
-  // Update our local spectator flag to false ONLY IF the server confirmed it.
-  // We defer to the 'joined' event on re-emit or state_update from server.
-  // Do NOT assume amSpectator = false here — wait for server state_update.
-  // The server will send state_update right after game_reset with correct flags.
-
+  $('bingo-overlay').classList.remove('hidden');
   $('bingo-overlay').classList.add('hidden');
   resetLetterBoxes();
 
@@ -1131,14 +1284,9 @@ socket.on('game_reset', ({by}) => {
   const saved = loadSession();
   if (saved) saveSession({...saved, card: myCard, isSpectator: false});
 
-  // applySpectatorUI will be called properly in state_update when server
-  // confirms amSpectator is false for all players after reset.
-  // But we can pre-emptively update UI since reset makes everyone a player.
   amSpectator = false;
   applySpectatorUI(false);
   buildBingoGrid();
-
-  // waiting overlay will be updated by the state_update that follows reset
 });
 
 socket.on('error_msg', ({message}) => showToast(`⚠ ${message}`, 'info'));

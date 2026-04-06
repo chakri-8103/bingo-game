@@ -24,6 +24,13 @@ let turnTimer = null;
 let turnStartedAt = null; // track when current turn started
 const TURN_TIMEOUT_MS = 60 * 1000; // 1 minute
 
+// ── BOT STATE ──
+const BOT_ID = '__bot__';
+const BOT_NAME = '🤖 BingoBot';
+const BOT_COLOR = '#8B5CF6';
+let botActive = false;
+let botTurnTimer = null;
+
 const PLAYER_COLORS = [
   '#FF6B6B', '#4ECDC4', '#FFE66D', '#A29BFE',
   '#FD79A8', '#6BCB77', '#FF9F43', '#54A0FF',
@@ -52,13 +59,99 @@ function getTurnRemainingSeconds() {
   return Math.max(0, 60 - elapsed);
 }
 
+// ── BOT HELPERS ──
+function getRealPlayerCount() {
+  return Object.values(players).filter(p => !p.isSpectator).length;
+}
+
+function addBot() {
+  if (botActive) return;
+  botActive = true;
+  players[BOT_ID] = { name: BOT_NAME, color: BOT_COLOR, isSpectator: false, sessionKey: BOT_ID };
+  if (!turnOrder.includes(BOT_ID)) turnOrder.push(BOT_ID);
+  console.log('🤖 Bot added to game');
+}
+
+function removeBot() {
+  if (!botActive) return;
+  botActive = false;
+  cancelBotTurn();
+  delete players[BOT_ID];
+  const idx = turnOrder.indexOf(BOT_ID);
+  if (idx !== -1) {
+    turnOrder.splice(idx, 1);
+    if (currentTurnIndex >= turnOrder.length && turnOrder.length > 0) {
+      currentTurnIndex = currentTurnIndex % turnOrder.length;
+    }
+  }
+  console.log('🤖 Bot removed from game');
+}
+
+function cancelBotTurn() {
+  if (botTurnTimer) { clearTimeout(botTurnTimer); botTurnTimer = null; }
+}
+
+function scheduleBotTurn() {
+  cancelBotTurn();
+  if (!botActive) return;
+  if (getCurrentTurnPlayer() !== BOT_ID) return;
+
+  const delay = 2000 + Math.random() * 2000; // 2–4s delay for realism
+  botTurnTimer = setTimeout(() => {
+    if (!botActive) return;
+    if (getCurrentTurnPlayer() !== BOT_ID) return;
+
+    // Pick a random uncalled number
+    const available = [];
+    for (let n = 1; n <= 25; n++) {
+      if (!selectedNumbers.some(s => s.number === n)) available.push(n);
+    }
+    if (available.length === 0) return;
+    const num = available[Math.floor(Math.random() * available.length)];
+
+    if (!gameStarted) gameStarted = true;
+
+    const entry = {
+      number: num,
+      playerName: BOT_NAME,
+      playerColor: BOT_COLOR,
+      timestamp: Date.now(),
+      isBot: true
+    };
+    selectedNumbers.push(entry);
+
+    currentTurnIndex = (currentTurnIndex + 1) % turnOrder.length;
+    startTurnTimer();
+
+    io.emit('number_called', { number: num, playerName: BOT_NAME, playerColor: BOT_COLOR, isBot: true });
+    broadcastState();
+
+    // If next turn is also bot, schedule again
+    if (getCurrentTurnPlayer() === BOT_ID) scheduleBotTurn();
+  }, delay);
+}
+
+function checkAndManageBot() {
+  const realCount = getRealPlayerCount();
+  if (realCount === 1 && !botActive) {
+    addBot();
+    broadcastState();
+    // Start bot turn if it's its turn
+    if (getCurrentTurnPlayer() === BOT_ID) scheduleBotTurn();
+  } else if (realCount >= 2 && botActive) {
+    removeBot();
+    broadcastState();
+  }
+}
+
 function broadcastState() {
   const playerList = Object.entries(players).map(([id, p]) => ({
     id,
     name: p.name,
     color: p.color,
     isSpectator: p.isSpectator,
-    isCurrentTurn: !p.isSpectator && getCurrentTurnPlayer() === id
+    isCurrentTurn: !p.isSpectator && getCurrentTurnPlayer() === id,
+    isBot: id === BOT_ID
   }));
 
   const activePlayerCount = playerList.filter(p => !p.isSpectator).length;
@@ -66,11 +159,12 @@ function broadcastState() {
   io.emit('state_update', {
     selectedNumbers,
     players: playerList,
-    playerCount: playerList.length,
+    playerCount: playerList.filter(p => !p.isBot).length, // don't count bot in online display
     activePlayerCount,
     currentTurnPlayerId: activePlayerCount >= 2 ? getCurrentTurnPlayer() : null,
     gameStarted,
-    turnRemainingSeconds: getTurnRemainingSeconds() // send remaining time to clients
+    turnRemainingSeconds: getTurnRemainingSeconds(),
+    botActive
   });
 }
 
@@ -85,6 +179,13 @@ function startTurnTimer() {
   if (!currentId) return;
   const player = players[currentId];
   if (!player) return;
+
+  // If it's the bot's turn, schedule bot move instead of timeout
+  if (currentId === BOT_ID) {
+    turnStartedAt = Date.now();
+    scheduleBotTurn();
+    return;
+  }
 
   turnStartedAt = Date.now(); // record when this turn started
 
@@ -106,9 +207,15 @@ function startTurnTimer() {
     // Re-admit all spectators
     turnOrder.length = 0;
     Object.entries(players).forEach(([id, p]) => {
+      if (id === BOT_ID) return;
       p.isSpectator = false;
       turnOrder.push(id);
     });
+
+    // Re-add bot if only 1 real player
+    if (botActive) {
+      turnOrder.push(BOT_ID);
+    }
 
     Object.values(sessions).forEach(s => {
       s.isSpectator = false;
@@ -145,13 +252,14 @@ io.on('connection', (socket) => {
       console.log(`🔄 ${trimmed} REJOINED (spectator: ${isSpectator})`);
     } else {
       color = getNextColor();
-      isSpectator = gameStarted;
+      isSpectator = gameStarted && getRealPlayerCount() >= 2; // only spectate if 2+ real players already playing
       console.log(`✅ ${trimmed} joined${isSpectator ? ' (spectator)' : ''}`);
     }
 
     players[socket.id] = { name: trimmed, color, isSpectator, sessionKey: key };
 
     if (!isSpectator && !turnOrder.includes(socket.id)) {
+      // If bot is in turn order and we now have 2 real players, remove bot first
       turnOrder.push(socket.id);
     }
 
@@ -177,6 +285,15 @@ io.on('connection', (socket) => {
     });
 
     io.emit('player_joined', { name: trimmed, color, isSpectator, isRejoin });
+
+    // Check bot after player joins
+    checkAndManageBot();
+
+    // If bot was active and now 2 real players exist, start turn timer properly
+    if (!botActive && getCurrentTurnPlayer() && getCurrentTurnPlayer() !== BOT_ID) {
+      if (gameStarted) startTurnTimer();
+    }
+
     broadcastState();
   });
 
@@ -239,6 +356,9 @@ io.on('connection', (socket) => {
     });
 
     broadcastState();
+
+    // If next turn is bot, schedule bot move
+    if (getCurrentTurnPlayer() === BOT_ID) scheduleBotTurn();
   });
 
   // ── BINGO CLAIMED
@@ -246,6 +366,7 @@ io.on('connection', (socket) => {
     const player = players[socket.id];
     if (!player) return;
     clearTurnTimer();
+    cancelBotTurn();
     io.emit('bingo_announced', { playerName: player.name, playerColor: player.color });
   });
 
@@ -255,12 +376,14 @@ io.on('connection', (socket) => {
     if (!player) return;
 
     clearTurnTimer();
+    cancelBotTurn();
     selectedNumbers.length = 0;
     currentTurnIndex = 0;
     gameStarted = false;
 
     turnOrder.length = 0;
     Object.entries(players).forEach(([id, p]) => {
+      if (id === BOT_ID) return; // skip bot — re-add below if needed
       p.isSpectator = false;
       turnOrder.push(id);
     });
@@ -269,6 +392,21 @@ io.on('connection', (socket) => {
       s.isSpectator = false;
       s.calledNumbers = [];
     });
+
+    // Re-check bot after reset
+    const realCount = getRealPlayerCount();
+    if (realCount === 1) {
+      if (!botActive) {
+        botActive = true;
+        players[BOT_ID] = { name: BOT_NAME, color: BOT_COLOR, isSpectator: false, sessionKey: BOT_ID };
+      }
+      if (!turnOrder.includes(BOT_ID)) turnOrder.push(BOT_ID);
+    } else {
+      if (botActive) {
+        botActive = false;
+        delete players[BOT_ID];
+      }
+    }
 
     io.emit('game_reset', { by: player.name });
     broadcastState();
@@ -303,16 +441,24 @@ io.on('connection', (socket) => {
         }
       }
 
-      const activePlayers = Object.values(players).filter(p => !p.isSpectator);
+      const activePlayers = Object.values(players).filter(p => !p.isSpectator && p !== players[BOT_ID]);
       if (activePlayers.length === 0) {
         gameStarted = false;
         clearTurnTimer();
-      } else if (activePlayers.length < 2) {
-        clearTurnTimer();
-        broadcastState();
-      } else if (wasCurrentTurn) {
-        startTurnTimer();
-        broadcastState();
+        cancelBotTurn();
+        removeBot();
+      } else {
+        // Check if we need to add/remove bot
+        checkAndManageBot();
+
+        if (wasCurrentTurn) {
+          if (getCurrentTurnPlayer() === BOT_ID) {
+            scheduleBotTurn();
+          } else {
+            startTurnTimer();
+          }
+          broadcastState();
+        }
       }
 
       broadcastState();
