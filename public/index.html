@@ -3,15 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
   <meta name="google-site-verification" content="2sFOoVB05dt18mAHE57e2VYpmtmExGiU5ZIhdZm5ZUs" />
-
   <title>Bingo Blaster Game - Play Online Free</title>
-
   <meta name="description" content="Play Bingo Blaster online with friends. Multiplayer bingo game with rooms and fun gameplay.">
-
   <meta name="keywords" content="bingo game, online bingo, bingo blaster, multiplayer bingo">
-
   <meta name="author" content="Chakri">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -125,23 +120,33 @@
        GAME HEADER
     ══════════════════════════════ */
     #game-screen{min-height:100vh;display:flex;flex-direction:column;}
-    .game-header{display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.5rem;
-      background:var(--surface);border-bottom:1.5px solid var(--border);flex-wrap:wrap;gap:0.6rem;
-      position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,0.06);}
-    .header-left{display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;}
-    .header-right{display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;}
-    .logo-small{font-family:var(--font-display);font-size:1.1rem;color:var(--accent);letter-spacing:2px;}
+    .game-header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0.75rem 1.5rem;
+      background:var(--surface);border-bottom:1.5px solid var(--border);
+      gap:0.6rem;
+      position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,0.06);
+      /* Never wrap — keep everything on one row */
+      flex-wrap:nowrap;
+      min-height:56px;
+    }
+    .header-left{display:flex;align-items:center;gap:0.8rem;flex:1;min-width:0;overflow:hidden;}
+    .header-right{display:flex;align-items:center;gap:0.5rem;flex-shrink:0;}
+    .logo-small{font-family:var(--font-display);font-size:1.1rem;color:var(--accent);letter-spacing:2px;white-space:nowrap;}
     .player-badge{display:flex;align-items:center;gap:0.4rem;background:var(--accent-lt);border:1.5px solid rgba(224,92,42,0.2);
-      border-radius:100px;padding:0.25rem 0.8rem;font-size:0.82rem;font-weight:700;color:var(--accent);}
-    .player-dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
-    .online-count{display:flex;align-items:center;gap:0.35rem;font-size:0.82rem;color:var(--text-dim);font-weight:600;}
-    .pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--accent3);display:inline-block;animation:pulse 2s infinite;}
+      border-radius:100px;padding:0.25rem 0.8rem;font-size:0.82rem;font-weight:700;color:var(--accent);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+    .player-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0;}
+    .online-count{display:flex;align-items:center;gap:0.35rem;font-size:0.82rem;color:var(--text-dim);font-weight:600;white-space:nowrap;}
+    .pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--accent3);display:inline-block;animation:pulse 2s infinite;flex-shrink:0;}
     @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(5,150,105,0.5);}50%{box-shadow:0 0 0 5px rgba(5,150,105,0);}}
 
     /* ── LOGOUT BUTTON ── */
     #logout-btn {
       display:flex; align-items:center; justify-content:center;
-      width:34px; height:34px;
+      /* Fixed size — visible on all screen sizes */
+      width:36px; height:36px;
+      flex-shrink:0;
       background:transparent;
       border:1.5px solid var(--border);
       border-radius:8px;
@@ -149,6 +154,8 @@
       color:var(--text-dim);
       transition:all 0.2s;
       position:relative;
+      /* Ensure it's always visible — no overflow hide */
+      z-index:1;
     }
     #logout-btn:hover {
       border-color:#EF4444;
@@ -157,25 +164,30 @@
       transform:translateY(-1px);
       box-shadow:0 3px 10px rgba(239,68,68,0.18);
     }
-    #logout-btn svg { width:16px; height:16px; }
-    #logout-btn::after {
-      content:'Logout';
-      position:absolute;
-      bottom:-28px; left:50%;
-      transform:translateX(-50%);
-      background:rgba(26,23,20,0.85);
-      color:#fff;
-      font-size:0.62rem;
-      font-family:var(--font-mono);
-      letter-spacing:0.1em;
-      padding:0.2rem 0.5rem;
-      border-radius:4px;
-      white-space:nowrap;
-      pointer-events:none;
-      opacity:0;
-      transition:opacity 0.15s;
+    #logout-btn svg { width:16px; height:16px; flex-shrink:0; }
+
+    /* Tooltip — only on non-touch devices */
+    @media (hover: hover) {
+      #logout-btn::after {
+        content:'Logout';
+        position:absolute;
+        bottom:-30px; left:50%;
+        transform:translateX(-50%);
+        background:rgba(26,23,20,0.85);
+        color:#fff;
+        font-size:0.6rem;
+        font-family:var(--font-mono);
+        letter-spacing:0.1em;
+        padding:0.2rem 0.5rem;
+        border-radius:4px;
+        white-space:nowrap;
+        pointer-events:none;
+        opacity:0;
+        transition:opacity 0.15s;
+        z-index:200;
+      }
+      #logout-btn:hover::after { opacity:1; }
     }
-    #logout-btn:hover::after { opacity:1; }
 
     /* Turn countdown pill */
     #turn-countdown-pill{
@@ -184,6 +196,7 @@
       border-radius:100px; padding:0.25rem 0.85rem;
       font-size:0.78rem; font-weight:700; color:#92400E;
       font-family:var(--font-mono);
+      white-space:nowrap; flex-shrink:0;
     }
     #turn-countdown-pill.visible{display:flex;}
     #turn-countdown-pill.urgent{background:#FEE2E2;border-color:#FCA5A5;color:#991B1B;animation:urgentPulse 0.6s ease-in-out infinite;}
@@ -296,15 +309,6 @@
     .spec-stat-val{font-family:var(--font-mono);font-size:1.2rem;color:var(--accent);font-weight:700;line-height:1;}
     .spec-stat-label{font-size:0.58rem;color:var(--text-dim);margin-top:0.25rem;text-transform:uppercase;letter-spacing:0.1em;}
 
-    /* Spec card label */
-    .spec-card-label{
-      display:flex; align-items:center; justify-content:center; gap:0.5rem;
-      padding:0.45rem 0.8rem; margin-bottom:0.7rem;
-      background:var(--accent-lt); border:1px solid rgba(224,92,42,0.2);
-      border-radius:8px; font-family:var(--font-mono);
-      font-size:0.6rem; letter-spacing:0.18em; color:var(--accent); text-transform:uppercase;
-    }
-
     /* Bot player badge in players list */
     .bot-tag{font-size:0.58rem;background:#EDE9FE;color:#5B21B6;border:1px solid #C4B5FD;border-radius:4px;padding:0.1rem 0.35rem;font-family:var(--font-mono);letter-spacing:0.1em;}
 
@@ -414,6 +418,7 @@
     .toast.rejoin {border-left:4px solid var(--accent2);}
     .toast.timeout{border-left:4px solid #F59E0B;background:#FFFBEB;}
     .toast.bot    {border-left:4px solid #8B5CF6;background:#F5F3FF;}
+    .toast.kicked {border-left:4px solid #EF4444;background:#FEF2F2;}
     @keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(0.95);}to{opacity:1;transform:translateY(0) scale(1);}}
     @keyframes toastOut{from{opacity:1;}to{opacity:0;transform:translateY(10px);}}
 
@@ -441,6 +446,29 @@
     .logout-btn.confirm:hover{background:#DC2626;transform:translateY(-2px);box-shadow:0 4px 16px rgba(239,68,68,0.3);}
     .logout-btn.cancel{background:transparent;color:var(--text-dim);border:1.5px solid var(--border);}
     .logout-btn.cancel:hover{border-color:var(--text-dim);color:var(--text);}
+
+    /* ══════════════════════════════
+       FORCE KICKED MODAL
+    ══════════════════════════════ */
+    #kicked-screen {
+      position:fixed; inset:0; z-index:999999;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(245,244,240,0.97); backdrop-filter:blur(12px);
+      animation:fadeIn 0.3s ease both;
+    }
+    #kicked-screen.hidden{display:none!important;}
+    .kicked-card {
+      background:var(--surface); border:1.5px solid #FCA5A5;
+      border-radius:22px; padding:2.5rem 3rem;
+      max-width:400px; width:92%; text-align:center;
+      box-shadow:var(--shadow-lg);
+      animation:cardPop 0.5s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .kicked-emoji{font-size:3.5rem;display:block;margin-bottom:0.6rem;}
+    .kicked-title{font-family:var(--font-display);font-size:1.9rem;color:#DC2626;letter-spacing:2px;margin-bottom:0.5rem;}
+    .kicked-sub{color:var(--text-dim);font-size:0.85rem;line-height:1.6;margin-bottom:1.8rem;}
+    .kicked-btn{font-family:'Black Han Sans',sans-serif;font-size:1rem;padding:0.8rem 2.2rem;border-radius:9px;border:none;cursor:pointer;letter-spacing:1px;background:var(--accent);color:#fff;transition:all 0.2s;}
+    .kicked-btn:hover{background:#c44b1f;transform:translateY(-2px);box-shadow:0 6px 20px rgba(224,92,42,0.3);}
 
     /* ══════════════════════════════
        BINGO OVERLAY
@@ -481,13 +509,37 @@
     .bingo-btn.secondary{background:var(--surface2);color:var(--text);border:1.5px solid var(--border);}
     .bingo-btn.secondary:hover{border-color:var(--accent2);color:var(--accent2);}
 
+    /* ══════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════ */
     @media(max-width:900px){
       .game-main{grid-template-columns:1fr;}
       .left-panel{border-right:none;border-bottom:1.5px solid var(--border);}
       .bingo-card-wrap{max-width:100%;}
     }
+
+    @media(max-width:600px){
+      .game-header{padding:0.6rem 0.85rem; gap:0.4rem;}
+      /* On mobile, hide the logo text to save space */
+      .logo-small { display:none; }
+      /* Tighten gaps */
+      .header-left { gap:0.5rem; }
+      .header-right { gap:0.4rem; }
+      /* Shrink player badge */
+      .player-badge { padding:0.2rem 0.6rem; font-size:0.78rem; max-width:120px; }
+      /* Make countdown pill smaller */
+      #turn-countdown-pill { padding:0.2rem 0.6rem; font-size:0.72rem; }
+      /* Keep logout button same visible size */
+      #logout-btn { width:34px; height:34px; }
+    }
+
+    @media(max-width:400px){
+      .game-header { padding:0.5rem 0.7rem; }
+      .player-badge { max-width:100px; font-size:0.74rem; }
+      #turn-countdown-pill { display:none !important; } /* hide pill on very small — shown in banner */
+    }
+
     @media(max-width:500px){
-      .game-header{padding:0.65rem 0.9rem;}
       .left-panel,.right-panel{padding:1rem;}
       .join-card{padding:1.8rem 1.3rem;}
       .bingo-modal{padding:2rem 1.5rem;}
@@ -498,6 +550,16 @@
   </style>
 </head>
 <body>
+
+<!-- ══ FORCE KICKED MODAL ══ -->
+<div id="kicked-screen" class="hidden">
+  <div class="kicked-card">
+    <span class="kicked-emoji">⏰</span>
+    <div class="kicked-title">TIME'S UP!</div>
+    <div class="kicked-sub" id="kicked-reason">You were removed from the game for not playing within 60 seconds.</div>
+    <button class="kicked-btn" id="kicked-rejoin-btn">↩ Rejoin as New Player</button>
+  </div>
+</div>
 
 <!-- ══ RESTORE SESSION MODAL ══ -->
 <div id="restore-screen" class="hidden">
@@ -540,17 +602,17 @@
         <span class="player-dot" id="my-dot"></span>
         <span id="my-name-display">Player</span>
       </div>
-    </div>
-    <div class="header-right">
       <div class="online-count">
         <span class="pulse-dot"></span>
         <span id="player-count">0</span>&nbsp;online
       </div>
+    </div>
+    <div class="header-right">
       <div id="turn-countdown-pill">
         ⏱ <span id="turn-countdown-val">60</span>s
       </div>
-      <!-- LOGOUT BUTTON -->
-      <button id="logout-btn" title="Logout">
+      <!-- LOGOUT BUTTON — always visible -->
+      <button id="logout-btn" title="Logout" aria-label="Logout">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
           <polyline points="16 17 21 12 16 7"/>
@@ -713,12 +775,10 @@
 <script>
 /* ═══════════════════════════════════════════════════════
    BINGO BLASTER — CLIENT LOGIC
-   ✅ Light mode only — no dark/spectator theme
-   ✅ Timer syncs from server on page reload
-   ✅ Spectator stays spectator on mobile refresh
-   ✅ Spectator mobile continuous-refresh fix
-   ✅ Bot support — auto joins when only 1 player
-   ✅ Logout button — clears localStorage & reloads
+   ✅ Bug 1 fixed: rejoin correctly replaces socket in turnOrder (server-side)
+   ✅ Bug 2 fixed: logout icon always visible on mobile (header no-wrap)
+   ✅ Bug 3 fixed: AFK player is kicked & shown force-logout modal
+   ✅ Bug 4 fixed: waiting overlay respects bot as valid second player
 ═══════════════════════════════════════════════════════ */
 
 const socket = io();
@@ -775,16 +835,31 @@ $('logout-cancel-btn').addEventListener('click', () => {
 });
 $('logout-confirm-btn').addEventListener('click', () => {
   clearSession();
-  // Disconnect socket gracefully
   socket.disconnect();
+  window.location.reload();
+});
+
+/* ══════════════════════════════════
+   FORCE LOGOUT (AFK kick from server)
+══════════════════════════════════ */
+socket.on('force_logout', ({ reason }) => {
+  // Clear session so they can't rejoin as the same player
+  clearSession();
+  stopCountdown();
+
+  // Hide game screen, show kicked modal
+  $('game-screen').classList.add('hidden');
+  $('kicked-screen').classList.remove('hidden');
+  if (reason) $('kicked-reason').textContent = reason;
+});
+
+$('kicked-rejoin-btn').addEventListener('click', () => {
   // Reload to fresh join screen
   window.location.reload();
 });
 
 /* ══════════════════════════════════
    COUNTDOWN PILL
-   - startCountdown(seconds): starts from given seconds (synced from server)
-   - stopCountdown(): hides pill and clears interval
 ══════════════════════════════════ */
 function startCountdown(seconds) {
   stopCountdown();
@@ -813,16 +888,22 @@ function stopCountdown() {
 }
 
 /* ══════════════════════════════════
-   WAITING OVERLAY (need ≥ 2 players)
+   WAITING OVERLAY
+   BUG 4 FIX: bot counts as a player — activePlayerCount includes bot
+   so overlay hides correctly when bot is present
 ══════════════════════════════════ */
 function updateWaitingOverlay(count) {
   const overlay = $('waiting-overlay');
   const countEl = $('waiting-player-count-val');
   if (!overlay) return;
-  // Spectators never see the waiting overlay — they're watching
+
+  // Spectators never see the waiting overlay
   if (amSpectator) { overlay.classList.add('hidden'); return; }
+
   if (countEl) countEl.textContent = count;
-  // Bot counts as a second player, so no waiting overlay if bot is active
+
+  // count here is activePlayerCount from server which includes the bot
+  // So if bot is active, count >= 2 and overlay stays hidden
   if (count < 2) {
     overlay.classList.remove('hidden');
     stopCountdown();
@@ -845,19 +926,19 @@ function updateBotBanner(botActive) {
 }
 
 /* ══════════════════════════════════
-   SPECTATOR UI (light mode version)
+   SPECTATOR UI
 ══════════════════════════════════ */
 function applySpectatorUI(on) {
   const logo   = $('logo-small');
   const banner = $('spectator-banner');
   const stats  = $('spec-stats-bar');
   if (on) {
-    logo.textContent = '👀 BINGO BLASTER — SPECTATING';
-    banner.classList.add('visible');
+    if (logo) logo.textContent = '👀 BINGO BLASTER — SPECTATING';
+    if (banner) banner.classList.add('visible');
     if (stats) stats.classList.add('visible');
   } else {
-    logo.textContent = '🎱 BINGO BLASTER';
-    banner.classList.remove('visible');
+    if (logo) logo.textContent = '🎱 BINGO BLASTER';
+    if (banner) banner.classList.remove('visible');
     if (stats) stats.classList.remove('visible');
   }
 }
@@ -880,7 +961,6 @@ function buildBingoGrid() {
   const hintEl  = $('card-tap-hint');
   grid.innerHTML = '';
 
-  // Update hint text
   if (hintEl) {
     if (amSpectator) {
       hintEl.textContent = '👀 Watching live — card locked this round';
@@ -931,7 +1011,6 @@ function updateBingoGrid(latestNum) {
     }
   });
 
-  // Update hint text
   const h = $('card-tap-hint');
   if (h) {
     if (amSpectator) {
@@ -1031,7 +1110,6 @@ window.addEventListener('load', () => {
 
     $('restore-yes-btn').addEventListener('click', () => {
       $('restore-screen').classList.add('hidden');
-      // Restore card from session; server will restore spectator status from session key
       myCard = (saved.card && saved.card.length === 25) ? saved.card : generateCard();
       socket.emit('join', { name: saved.name, sessionKey: saved.sessionKey });
     });
@@ -1067,7 +1145,7 @@ socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, 
   myId         = playerId;
   myName       = playerName;
   myColor      = playerColor;
-  amSpectator  = isSpectator;  // restored from server session — always authoritative
+  amSpectator  = isSpectator;
   mySessionKey = sessionKey;
 
   $('my-name-display').textContent = playerName;
@@ -1076,7 +1154,6 @@ socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, 
 
   if (!myCard || myCard.length === 0) myCard = generateCard();
 
-  // Save session — include spectator status so we know on next reload
   saveSession({ name: playerName, sessionKey, card: myCard, isSpectator });
 
   applySpectatorUI(isSpectator);
@@ -1084,12 +1161,16 @@ socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, 
   $('join-screen').classList.add('hidden');
   $('game-screen').classList.remove('hidden');
 
-  // If not spectator, show waiting overlay until state_update confirms 2+ players
+  // BUG 4 FIX: Don't immediately show waiting overlay here.
+  // Let state_update decide — it has the accurate activePlayerCount including bot.
+  // Only show it as a fallback if state_update is slow (hide it later on state_update).
   if (!isSpectator) {
+    // Show overlay briefly; state_update will hide it if bot is already active
     $('waiting-overlay').classList.remove('hidden');
+  } else {
+    $('waiting-overlay').classList.add('hidden');
   }
 
-  // Sync countdown from server on rejoin/reload
   if (!isSpectator && turnRemainingSeconds > 0) {
     countdownSeconds = turnRemainingSeconds;
   }
@@ -1116,10 +1197,10 @@ socket.on('state_update', ({
 
   $('player-count').textContent = count;
 
-  // Update waiting overlay
+  // BUG 4 FIX: activePlayerCount from server includes bot (isSpectator:false)
+  // so if bot is active, count=2 and overlay hides correctly
   updateWaitingOverlay(activePlayerCount);
 
-  // Update bot banner
   updateBotBanner(isBotActive);
 
   // Spectator stats
@@ -1130,7 +1211,7 @@ socket.on('state_update', ({
     const sp = $('spec-players-val');if(sp) sp.textContent = count;
   }
 
-  // Turn banner — only show when 2+ active players
+  // Turn banner
   const tb = $('turn-banner'), tt = $('turn-text');
   if (turnId && activePlayerCount >= 2) {
     tb.classList.remove('hidden');
@@ -1204,9 +1285,8 @@ socket.on('state_update', ({
     pl.appendChild(el);
   });
 
-  // ── COUNTDOWN SYNC ──
+  // Countdown sync
   if (gameStarted && turnId && activePlayerCount >= 2) {
-    // Don't show countdown during bot's turn (bot moves fast)
     const currentPlayer = players.find(p => p.id === turnId);
     if (currentPlayer && currentPlayer.isBot) {
       stopCountdown();
@@ -1249,13 +1329,12 @@ socket.on('number_called', ({number, playerName, isBot}) => {
   } else {
     showToast(`🎱 ${number} called by ${playerName}!`, 'number');
   }
-  // Reset local countdown to 60; state_update will re-sync from server
   countdownSeconds = 60;
 });
 
 socket.on('turn_timeout', ({playerName}) => {
   stopCountdown();
-  showToast(`⏰ ${playerName} ran out of time! Game auto-reset.`, 'timeout', 5000);
+  showToast(`⏰ ${playerName} was removed for being AFK!`, 'timeout', 5000);
 });
 
 socket.on('bingo_announced', ({playerName, playerColor}) => {
@@ -1284,11 +1363,9 @@ socket.on('game_reset', ({by}) => {
   calledNumbers = [];
   stopCountdown();
 
-  $('bingo-overlay').classList.remove('hidden');
   $('bingo-overlay').classList.add('hidden');
   resetLetterBoxes();
 
-  // Generate new card for next game
   myCard = generateCard();
   const saved = loadSession();
   if (saved) saveSession({...saved, card: myCard, isSpectator: false});
