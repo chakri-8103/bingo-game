@@ -345,7 +345,8 @@ io.on('connection', (socket) => {
     } else {
       // ── NEW PLAYER ──
       color       = getNextColor();
-      isSpectator = gameStarted && getRealPlayerCount() >= 2;
+      // Spectator if: game already in progress (bot game OR 2-player game)
+      isSpectator = gameStarted;
       sessions[key] = { name: trimmed, color, isSpectator,
                         socketId: socket.id, calledNums: [], graceTimer: null };
       socketMap[socket.id] = key;
