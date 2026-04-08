@@ -499,5 +499,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🎱 Bingo Blaster running on ${PORT}`);
+  console.log(`🎱 Bingo Blaster Mutipayer Game ${PORT}`);
 });
