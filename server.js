@@ -497,6 +497,7 @@ io.on('connection', (socket) => {
   });
 });
 
+<<<<<<< HEAD
 app.get('/robots.txt', (req, res) => {
   res.setHeader('Content-Type', 'text/plain')
   res.sendFile(path.join(__dirname, 'public', 'robots.txt'))
@@ -510,4 +511,9 @@ app.get('/sitemap.xml', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🎱 Bingo Blaster running on http://localhost:${PORT}`);
+=======
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🎱 Bingo Blaster Mutipayer Game ${PORT}`);
+>>>>>>> 0dd312dc0b5df592e43bee5ccf40acef10ecd0ae
 });
