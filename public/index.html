@@ -1086,16 +1086,34 @@ function showBingo(winners) {
   if (bingoShown) return;
   bingoShown = true;
   stopCountdown();
-  let nameHtml = '';
-  if (winners.length === 1) {
-    const w = winners[0];
-    nameHtml = `<span style="color:${w.color}">${esc(w.name)}</span> Got BINGO! 🎉`;
+
+  const isMeWinner = !amSpectator && winners.some(w => w.name === myName);
+  let displayParts = [];
+
+  if (isMeWinner) {
+    displayParts.push('<span>You</span>');
+    winners.forEach(w => {
+      if (w.name !== myName) {
+        displayParts.push(`<span style="color:${w.color}">${esc(w.name)}</span>`);
+      }
+    });
   } else {
-    // Multiple winners
-    const parts = winners.map(w => `<span style="color:${w.color}">${esc(w.name)}</span>`);
-    nameHtml = parts.join(' and ') + ' Got BINGO! 🎉';
+    winners.forEach(w => {
+      displayParts.push(`<span style="color:${w.color}">${esc(w.name)}</span>`);
+    });
   }
-  $('bingo-winner-name').innerHTML = nameHtml;
+
+  let nameListStr = '';
+  if (displayParts.length === 1) {
+    nameListStr = displayParts[0];
+  } else if (displayParts.length === 2) {
+    nameListStr = displayParts.join(' and ');
+  } else {
+    const last = displayParts.pop();
+    nameListStr = displayParts.join(', ') + ' and ' + last;
+  }
+
+  $('bingo-winner-name').innerHTML = `${nameListStr} Got BINGO! 🎉`;
   buildMiniCard();
   $('bingo-overlay').classList.remove('hidden');
   launchConfetti();
