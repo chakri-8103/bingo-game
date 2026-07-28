@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -1086,21 +1086,14 @@ function showBingo(winners) {
   if (bingoShown) return;
   bingoShown = true;
   stopCountdown();
-  const meWon = winners.some(w => w.name === myName);
   let nameHtml = '';
   if (winners.length === 1) {
     const w = winners[0];
-    nameHtml = w.name === myName
-      ? `<span>YOU</span> got BINGO! 🎉`
-      : `<span style="color:${w.color}">${esc(w.name)}</span> got BINGO!`;
+    nameHtml = `<span style="color:${w.color}">${esc(w.name)}</span> Got BINGO! 🎉`;
   } else {
     // Multiple winners
-    const parts = winners.map(w =>
-      w.name === myName
-        ? `<span>YOU</span>`
-        : `<span style="color:${w.color}">${esc(w.name)}</span>`
-    );
-    nameHtml = parts.join(' & ') + ' got BINGO! 🎉';
+    const parts = winners.map(w => `<span style="color:${w.color}">${esc(w.name)}</span>`);
+    nameHtml = parts.join(' and ') + ' Got BINGO! 🎉';
   }
   $('bingo-winner-name').innerHTML = nameHtml;
   buildMiniCard();

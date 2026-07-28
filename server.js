@@ -34,6 +34,11 @@ const BOT_NAME = '🤖 BingoBot';
 const BOT_COLOR = '#8B5CF6';
 let botActive = false;
 let botTurnTimer = null;
+let botBingoTimer = null;
+
+function cancelBotBingoTimer() {
+  if (botBingoTimer) { clearTimeout(botBingoTimer); botBingoTimer = null; }
+}
 
 const PLAYER_COLORS = [
   '#FF6B6B', '#4ECDC4', '#FFE66D', '#A29BFE',
@@ -138,6 +143,7 @@ function checkDraw() {
 
 function cancelBotTurn() {
   if (botTurnTimer) { clearTimeout(botTurnTimer); botTurnTimer = null; }
+  cancelBotBingoTimer();
 }
 
 function scheduleBotTurn() {
@@ -153,6 +159,17 @@ function scheduleBotTurn() {
     if (!available.length) return;
     const num = available[Math.floor(Math.random() * available.length)];
     if (!gameStarted) gameStarted = true;
+
+    // Check if bot already completed BINGO from previous calls before picking a new number
+    if (checkBotBingo()) {
+      clearTurnTimer(); cancelBotTurn();
+      botBingoTimer = setTimeout(() => {
+        botBingoTimer = null;
+        io.emit('bingo_announced', { winners: [{ name: BOT_NAME, color: BOT_COLOR }] });
+      }, 400);
+      return;
+    }
+
     selectedNumbers.push({
       number: num, playerName: BOT_NAME,
       playerColor: BOT_COLOR, timestamp: Date.now(), isBot: true
@@ -174,20 +191,48 @@ function scheduleBotTurn() {
   }, delay);
 }
 
+let botCard = [];
+
+function generateBotCard() {
+  const nums = Array.from({ length: 25 }, (_, i) => i + 1);
+  for (let i = nums.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [nums[i], nums[j]] = [nums[j], nums[i]];
+  }
+  return nums;
+}
+
+function checkBotBingo() {
+  if (!botActive || !botCard.length) return false;
+  const called = new Set(selectedNumbers.map(s => s.number));
+  const LINES = [
+    [0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14],[15,16,17,18,19],[20,21,22,23,24],
+    [0,5,10,15,20],[1,6,11,16,21],[2,7,12,17,22],[3,8,13,18,23],[4,9,14,19,24],
+    [0,6,12,18,24],[4,8,12,16,20]
+  ];
+  let struck = 0;
+  for (const line of LINES) {
+    if (line.every(idx => called.has(botCard[idx]))) struck++;
+  }
+  return struck >= 5;
+}
+
 function addBot() {
   if (botActive) return;
   botActive = true;
+  botCard = generateBotCard();
   sessions[BOT_KEY] = {
     name: BOT_NAME, color: BOT_COLOR,
     isSpectator: false, socketId: BOT_KEY
   };
   if (!turnOrder.includes(BOT_KEY)) turnOrder.push(BOT_KEY);
-  console.log('🤖 Bot added');
+  console.log('🤖 Bot added with fresh card');
 }
 
 function removeBot() {
   if (!botActive) return;
   botActive = false;
+  botCard = [];
   cancelBotTurn();
   delete sessions[BOT_KEY];
   const idx = turnOrder.indexOf(BOT_KEY);
@@ -198,7 +243,7 @@ function removeBot() {
       currentTurnIndex = Math.max(0, currentTurnIndex % Math.max(turnOrder.length, 1));
     } else currentTurnIndex = 0;
   }
-  console.log('🤖 Bot removed');
+  console.log('🤖 Bot removed (card cleared)');
 }
 
 function checkAndManageBot() {
@@ -433,9 +478,12 @@ io.on('connection', (socket) => {
     const key = keyOf(socket.id);
     const sess = key ? sessions[key] : null;
     if (!sess) return;
-    clearTurnTimer(); cancelBotTurn();
-    // winners is an array of { name, color } from client
-    io.emit('bingo_announced', { winners: winners || [{ name: sess.name, color: sess.color }] });
+    clearTurnTimer(); cancelBotTurn(); cancelBotBingoTimer();
+    let finalWinners = winners || [{ name: sess.name, color: sess.color }];
+    if (checkBotBingo() && !finalWinners.some(w => w.name === BOT_NAME)) {
+      finalWinners.push({ name: BOT_NAME, color: BOT_COLOR });
+    }
+    io.emit('bingo_announced', { winners: finalWinners });
   });
 
   socket.on('reset_game', () => {
