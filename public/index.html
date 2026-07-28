@@ -268,6 +268,9 @@
     /* ══════════════════════════════
        WAITING FOR PLAYER OVERLAY
     ══════════════════════════════ */
+    /* ══════════════════════════════
+       WAITING FOR PLAYER OVERLAY & FIFO LOBBY
+    ══════════════════════════════ */
     #waiting-overlay{
       position:fixed; inset:0; z-index:8000;
       display:flex; align-items:center; justify-content:center;
@@ -276,22 +279,55 @@
     #waiting-overlay.hidden{display:none!important;}
     .waiting-card{
       background:var(--surface); border:1.5px solid var(--border);
-      border-radius:24px; padding:3rem 3.5rem; text-align:center;
-      max-width:420px; width:92%; box-shadow:var(--shadow-lg);
+      border-radius:24px; padding:2.5rem 3rem; text-align:center;
+      max-width:440px; width:92%; box-shadow:var(--shadow-lg);
       animation:slideUp 0.5s cubic-bezier(0.16,1,0.3,1) both;
     }
-    .waiting-emoji{font-size:4rem;display:block;margin-bottom:0.8rem;animation:waitBounce 1.8s ease-in-out infinite;}
+    .waiting-emoji{font-size:3.5rem;display:block;margin-bottom:0.6rem;animation:waitBounce 1.8s ease-in-out infinite;}
     @keyframes waitBounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
-    .waiting-title{font-family:var(--font-display);font-size:1.9rem;color:var(--accent);letter-spacing:2px;margin-bottom:0.5rem;}
-    .waiting-sub{color:var(--text-dim);font-size:0.88rem;line-height:1.6;margin-bottom:1.5rem;}
-    .waiting-dots{display:flex;justify-content:center;gap:0.5rem;margin-bottom:1.5rem;}
+    .waiting-title{font-family:var(--font-display);font-size:1.8rem;color:var(--accent);letter-spacing:2px;margin-bottom:0.4rem;}
+    .waiting-sub{color:var(--text-dim);font-size:0.85rem;line-height:1.5;margin-bottom:1.2rem;}
+    .waiting-queue-badge{
+      display:inline-block; background:#EFF6FF; border:1.5px solid #BFDBFE; color:#1D4ED8;
+      font-family:var(--font-mono); font-size:0.78rem; font-weight:700; border-radius:100px;
+      padding:0.4rem 1.2rem; margin-bottom:1.2rem; letter-spacing:0.05em;
+    }
+    .waiting-dots{display:flex;justify-content:center;gap:0.5rem;margin-bottom:1.2rem;}
     .waiting-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);opacity:0.25;animation:dotPulse 1.4s ease-in-out infinite;}
     .waiting-dot:nth-child(1){animation-delay:0s;}
     .waiting-dot:nth-child(2){animation-delay:0.2s;}
     .waiting-dot:nth-child(3){animation-delay:0.4s;}
     @keyframes dotPulse{0%,80%,100%{opacity:0.25;transform:scale(1);}40%{opacity:1;transform:scale(1.3);}}
-    .waiting-player-count{font-family:var(--font-mono);font-size:0.68rem;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;}
-    .waiting-player-count span{color:var(--accent3);font-weight:700;}
+    .waiting-note{font-size:0.75rem;color:var(--text-dim);line-height:1.4;border-top:1px dashed var(--border);padding-top:0.8rem;}
+
+    /* ══════════════════════════════
+       ACTIVE ROOMS LIST & CARDS
+    ══════════════════════════════ */
+    .rooms-list{display:flex;flex-direction:column;gap:0.5rem;max-height:180px;overflow-y:auto;padding-right:0.2rem;}
+    .rooms-list::-webkit-scrollbar{width:3px;}
+    .rooms-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+    .room-card{
+      background:var(--surface2); border:1.5px solid var(--border); border-radius:10px;
+      padding:0.55rem 0.8rem; display:flex; align-items:center; justify-content:space-between;
+      transition:all 0.2s;
+    }
+    .room-card.is-current{border-color:var(--accent2);background:#EFF6FF;}
+    .room-card-info{display:flex;flex-direction:column;gap:2px;}
+    .room-name{font-family:var(--font-display);font-size:0.88rem;color:var(--text);}
+    .room-meta{display:flex;align-items:center;gap:0.4rem;font-size:0.72rem;color:var(--text-dim);}
+    .room-status-badge{
+      font-family:var(--font-mono);font-size:0.58rem;font-weight:700;
+      padding:0.15rem 0.45rem;border-radius:4px;text-transform:uppercase;
+    }
+    .room-status-badge.lobby{background:#ECFDF5;color:#059669;border:1px solid #A7F3D0;}
+    .room-status-badge.running{background:#FEF3C7;color:#D97706;border:1px solid #FDE68A;}
+    .room-status-badge.finished{background:#F3F4F6;color:#6B7280;border:1px solid #E5E7EB;}
+    .watch-btn{
+      font-family:var(--font-mono);font-size:0.65rem;font-weight:700;
+      background:var(--surface);border:1.5px solid var(--border);border-radius:6px;
+      padding:0.25rem 0.65rem;cursor:pointer;color:var(--accent2);transition:all 0.2s;
+    }
+    .watch-btn:hover{border-color:var(--accent2);background:var(--accent2);color:#fff;}
 
     /* ══════════════════════════════
        GAME LAYOUT
@@ -571,7 +607,7 @@
   <div class="kicked-card">
     <span class="kicked-emoji">⏰</span>
     <div class="kicked-title">TIME'S UP!</div>
-    <div class="kicked-sub" id="kicked-reason">You were removed from the game for not playing within 60 seconds.</div>
+    <div class="kicked-sub" id="kicked-reason">You were removed from the game for not playing within 30 seconds.</div>
     <button class="kicked-btn" id="kicked-rejoin-btn">↩ Rejoin as New Player</button>
   </div>
 </div>
@@ -624,7 +660,7 @@
     </div>
     <div class="header-right">
       <div id="turn-countdown-pill">
-        ⏱ <span id="turn-countdown-val">60</span>s
+        ⏱ <span id="turn-countdown-val">30</span>s
       </div>
       <!-- LOGOUT BUTTON — always visible -->
       <button id="logout-btn" title="Logout" aria-label="Logout">
@@ -734,6 +770,12 @@
       </div>
       <div class="panel-title" style="margin-top:1.25rem">PLAYERS ONLINE</div>
       <div class="players-list" id="players-list"></div>
+
+      <div class="panel-title" style="margin-top:1.25rem;display:flex;justify-space-between;align-items:center;">
+        <span>ACTIVE ROOMS</span>
+        <span id="active-rooms-count-badge" class="count-badge">1 Room</span>
+      </div>
+      <div class="rooms-list" id="rooms-list"></div>
     </section>
   </main>
 
@@ -744,14 +786,15 @@
 <div id="waiting-overlay" class="hidden">
   <div class="waiting-card">
     <span class="waiting-emoji">⏳</span>
-    <div class="waiting-title">Reload Once...</div>
-    <div class="waiting-sub">Reload..</div>
+    <div class="waiting-title" id="waiting-title">Waiting Lobby</div>
+    <div class="waiting-sub" id="waiting-sub">You are in the waiting queue for the next game.</div>
+    <div class="waiting-queue-badge" id="waiting-queue-badge">QUEUE POSITION: <span id="queue-pos-val">#1</span> (FIFO)</div>
     <div class="waiting-dots">
       <div class="waiting-dot"></div>
       <div class="waiting-dot"></div>
       <div class="waiting-dot"></div>
     </div>
-    <div class="waiting-player-count">Waiting Reload</div>
+    <div class="waiting-note">Players are automatically moved into a new game in <strong>First-In, First-Out (FIFO)</strong> order.</div>
   </div>
 </div>
 
@@ -822,8 +865,9 @@ let activePlayerCount = 0;
 let isBotActive = false;
 
 // Client-side countdown — synced from server
+const TURN_TIMEOUT_SECONDS = 30;
 let countdownInterval = null;
-let countdownSeconds = 60;
+let countdownSeconds = TURN_TIMEOUT_SECONDS;
 
 const LS_KEY = 'bingo_blaster_v1';
 
@@ -1191,7 +1235,7 @@ $('name-input').addEventListener('keydown', e=>{ if(e.key==='Enter') joinGame();
 /* ══════════════════════════════════
    SOCKET EVENTS
 ══════════════════════════════════ */
-socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, sessionKey, turnRemainingSeconds}) => {
+socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, sessionKey, turnRemainingSeconds, inWaitingLobby, queuePosition}) => {
   myId         = playerId;
   myName       = playerName;
   myColor      = playerColor;
@@ -1213,11 +1257,11 @@ socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, 
   $('join-screen').classList.add('hidden');
   $('game-screen').classList.remove('hidden');
 
-  // BUG 4 FIX: Don't immediately show waiting overlay here.
-  // Let state_update decide — it has the accurate activePlayerCount including bot.
-  // Only show it as a fallback if state_update is slow (hide it later on state_update).
-  if (!isSpectator) {
-    // Show overlay briefly; state_update will hide it if bot is already active
+  if (inWaitingLobby) {
+    $('waiting-overlay').classList.remove('hidden');
+    const qVal = $('queue-pos-val');
+    if (qVal) qVal.textContent = `#${queuePosition || 1}`;
+  } else if (!isSpectator) {
     $('waiting-overlay').classList.remove('hidden');
   } else {
     $('waiting-overlay').classList.add('hidden');
@@ -1228,6 +1272,7 @@ socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, 
   }
 
   if (isRejoin)         showToast(`🔄 Welcome back, ${playerName}!`, 'rejoin');
+  else if (inWaitingLobby) showToast(`⏳ Added to waiting queue (Position #${queuePosition || 1})`, 'info');
   else if (isSpectator) showToast('👀 Game in progress — you are spectating this round', 'info');
 });
 
@@ -1353,7 +1398,7 @@ socket.on('state_update', ({
     if (currentPlayer && currentPlayer.isBot) {
       stopCountdown();
     } else if (!countdownInterval) {
-      startCountdown(turnRemainingSeconds != null ? turnRemainingSeconds : 60);
+      startCountdown(turnRemainingSeconds != null ? turnRemainingSeconds : TURN_TIMEOUT_SECONDS);
     } else {
       const serverSecs = turnRemainingSeconds != null ? turnRemainingSeconds : countdownSeconds;
       if (Math.abs(countdownSeconds - serverSecs) > 3) {
@@ -1392,12 +1437,75 @@ socket.on('number_called', ({number, playerName, isBot}) => {
   } else {
     showToast(`🎱 ${number} called by ${playerName}!`, 'number');
   }
-  countdownSeconds = 60;
+  countdownSeconds = TURN_TIMEOUT_SECONDS;
 });
 
 socket.on('turn_timeout', ({playerName}) => {
   stopCountdown();
   showToast(`⏰ ${playerName} was removed for being AFK!`, 'timeout', 5000);
+});
+
+let currentRoomId = 'room_1';
+
+function spectateRoom(roomId) {
+  socket.emit('spectate_room', { roomId });
+  showToast(`👀 Watching ${roomId.replace('room_','Room ')}`, 'info');
+}
+
+socket.on('rooms_summary', ({ rooms, waitingCount }) => {
+  const badge = $('active-rooms-count-badge');
+  if (badge) badge.textContent = `${rooms.length} ${rooms.length === 1 ? 'Room' : 'Rooms'}`;
+
+  const container = $('rooms-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  rooms.forEach(r => {
+    const card = document.createElement('div');
+    const isCurrent = r.id === currentRoomId;
+    card.className = `room-card ${isCurrent ? 'is-current' : ''}`;
+
+    const statusClass = r.status.toLowerCase();
+    const botBadge = r.botActive ? ' &nbsp;·&nbsp; 🤖 BOT' : '';
+    const currentTag = isCurrent ? ' <span style="opacity:0.6;font-size:0.7rem">(You)</span>' : '';
+
+    let watchBtnHtml = '';
+    if (!isCurrent) {
+      watchBtnHtml = `<button class="watch-btn" onclick="spectateRoom('${r.id}')">Watch</button>`;
+    }
+
+    card.innerHTML = `
+      <div class="room-card-info">
+        <div class="room-name">${esc(r.name)}${currentTag}</div>
+        <div class="room-meta">
+          <span class="room-status-badge ${statusClass}">${esc(r.status)}</span>
+          <span>${r.playerCount}/${r.maxPlayers}${botBadge}</span>
+        </div>
+      </div>
+      ${watchBtnHtml}
+    `;
+    container.appendChild(card);
+  });
+});
+
+socket.on('lobby_update', ({ inWaitingLobby, queuePosition }) => {
+  if (inWaitingLobby) {
+    const qVal = $('queue-pos-val');
+    if (qVal) qVal.textContent = `#${queuePosition}`;
+    $('waiting-overlay').classList.remove('hidden');
+  }
+});
+
+socket.on('game_ready', ({ roomId, roomName }) => {
+  currentRoomId = roomId;
+  amSpectator = false;
+  $('waiting-overlay').classList.add('hidden');
+  applySpectatorUI(false);
+  myCard = generateCard();
+  const saved = loadSession();
+  if (saved) saveSession({ ...saved, card: myCard, isSpectator: false });
+  buildBingoGrid();
+  showToast(`🎉 Your game is ready! Joined ${roomName || 'Room'}!`, 'join', 4500);
 });
 
 socket.on('bingo_announced', ({ winners }) => {
