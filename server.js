@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // turnOrder stores SESSION KEYS (stable). socketMap is lookup.
 // ─────────────────────────────────────────────────────────────
 
-const sessions = {};   // sessionKey → { name, color, isSpectator, socketId, calledNums, graceTimer, roomId }
+const sessions = {};   // sessionKey → { name, color, isSpectator, socketId, calledNums, graceTimer, roomId, card }
 const socketMap = {};   // socketId   → sessionKey
 const waitingLobby = []; // FIFO Queue of sessionKeys waiting for a game room
 
@@ -49,6 +49,21 @@ function getSocket(key) {
 
 function keyOf(socketId) { return socketMap[socketId] || null; }
 
+function checkPlayerBingoOnServer(card, selectedNumbers) {
+  if (!card || card.length !== 25) return false;
+  const calledSet = new Set(selectedNumbers.map(n => n.number));
+  const LINES = [
+    [0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14],[15,16,17,18,19],[20,21,22,23,24],
+    [0,5,10,15,20],[1,6,11,16,21],[2,7,12,17,22],[3,8,13,18,23],[4,9,14,19,24],
+    [0,6,12,18,24],[4,8,12,16,20]
+  ];
+  let struck = 0;
+  for (const line of LINES) {
+    if (line.every(idx => calledSet.has(card[idx]))) struck++;
+  }
+  return struck >= 5;
+}
+
 // ─────────────────────────────────────────────────────────────
 // GAME ROOM CLASS
 // ─────────────────────────────────────────────────────────────
@@ -60,6 +75,7 @@ class GameRoom {
     this.currentTurnIndex = 0;
     this.selectedNumbers = [];
     this.gameStarted = false;
+    this.gameStartedAt = null;
     this.turnTimer = null;
     this.turnStartedAt = null;
 
@@ -83,6 +99,11 @@ class GameRoom {
     return Math.max(0, TURN_TIMEOUT_SECONDS - Math.floor((Date.now() - this.turnStartedAt) / 1000));
   }
 
+  getElapsedSeconds() {
+    if (!this.gameStartedAt) return 0;
+    return Math.floor((Date.now() - this.gameStartedAt) / 1000);
+  }
+
   getRealPlayerCount() {
     return this.turnOrder.filter(k => k !== BOT_KEY).length;
   }
@@ -91,16 +112,22 @@ class GameRoom {
     const curKey = this.getCurrentTurnKey();
     return this.turnOrder.map(key => {
       if (key === BOT_KEY) {
+        if (!this.botCard || this.botCard.length !== 25) this.botCard = this.generateBotCard();
         return {
           id: BOT_KEY, name: BOT_NAME, color: BOT_COLOR,
-          isSpectator: false, isCurrentTurn: key === curKey, isBot: true
+          isSpectator: false, isCurrentTurn: key === curKey, isBot: true,
+          isOffline: false, card: this.botCard || []
         };
       }
       const s = sessions[key];
       if (!s) return null;
+      if (!s.card || s.card.length !== 25) {
+        s.card = this.generateBotCard();
+      }
       return {
         id: s.socketId || key, name: s.name, color: s.color,
-        isSpectator: false, isCurrentTurn: key === curKey, isBot: false
+        isSpectator: false, isCurrentTurn: key === curKey, isBot: false,
+        isOffline: !s.socketId, card: s.card || []
       };
     }).filter(Boolean);
   }
@@ -110,7 +137,8 @@ class GameRoom {
       .filter(([k, s]) => s.roomId === this.id && s.isSpectator && s.socketId)
       .map(([k, s]) => ({
         id: s.socketId, name: s.name, color: s.color,
-        isSpectator: true, isCurrentTurn: false, isBot: false
+        isSpectator: true, isCurrentTurn: false, isBot: false,
+        isOffline: false, card: s.card || []
       }));
   }
 
@@ -135,8 +163,10 @@ class GameRoom {
       players: all,
       playerCount: all.filter(p => !p.isBot).length,
       activePlayerCount: actCount,
+      spectatorCount: specs.length,
       currentTurnPlayerId: turnPlayerId,
       gameStarted: this.gameStarted,
+      elapsedSeconds: this.getElapsedSeconds(),
       countdownActive: this.countdownActive,
       countdownSec: this.countdownSec,
       turnRemainingSeconds: this.getTurnRemainingSeconds(),
@@ -212,6 +242,7 @@ class GameRoom {
         this.countdownTimer = null;
         this.countdownActive = false;
         this.gameStarted = true;
+        this.gameStartedAt = Date.now();
 
         console.log(`🚀 [${this.id}] Game COMMITTED & STARTED!`);
         io.to(this.id).emit('game_starting_countdown', { count: 0 });
@@ -244,7 +275,10 @@ class GameRoom {
       }
       if (!available.length) return;
       const num = available[Math.floor(Math.random() * available.length)];
-      if (!this.gameStarted) this.gameStarted = true;
+      if (!this.gameStarted) {
+        this.gameStarted = true;
+        this.gameStartedAt = Date.now();
+      }
 
       if (this.checkBotBingo()) {
         this.clearTurnTimer(); this.cancelBotTurn();
@@ -306,7 +340,7 @@ class GameRoom {
     this.botCard = this.generateBotCard();
     sessions[BOT_KEY] = {
       name: BOT_NAME, color: BOT_COLOR,
-      isSpectator: false, socketId: BOT_KEY, roomId: this.id
+      isSpectator: false, socketId: BOT_KEY, roomId: this.id, card: this.botCard
     };
     if (!this.turnOrder.includes(BOT_KEY)) this.turnOrder.push(BOT_KEY);
     console.log(`🤖 Bot added to [${this.id}] with fresh card`);
@@ -347,6 +381,7 @@ class GameRoom {
     this.selectedNumbers = [];
     this.currentTurnIndex = 0;
     this.gameStarted = false;
+    this.gameStartedAt = null;
     if (this.botActive) this.removeBot();
   }
 }
@@ -433,6 +468,7 @@ function broadcastRoomsSummary() {
     status: r.gameStarted ? 'Running' : (r.countdownActive ? 'Starting' : (r.selectedNumbers.length > 0 ? 'Finished' : 'Lobby')),
     playerCount: r.getRealPlayerCount() + (r.botActive ? 1 : 0),
     maxPlayers: 5,
+    spectatorCount: r.buildSpectatorList().length,
     botActive: r.botActive,
     isFull: r.getRealPlayerCount() >= 5
   }));
@@ -460,11 +496,6 @@ function broadcastLobbyState() {
 
 // ─────────────────────────────────────────────────────────────
 // COMPREHENSIVE STRICT FIFO MATCHMAKING ENGINE
-// Rules 1-6:
-// 1. Fill available seats in ALL existing lobby rooms first in FIFO order.
-// 2. Lock running/counting-down rooms (no entries).
-// 3. Reuse finished rooms when they reset.
-// 4. Create new rooms ONLY when waiting count exceeds total available lobby seats across all existing rooms (and not all rooms are running).
 // ─────────────────────────────────────────────────────────────
 function evaluateMatchmaking() {
   if (waitingLobby.length === 0) return;
@@ -570,7 +601,17 @@ io.on('connection', (socket) => {
 
   broadcastRoomsSummary();
 
-  socket.on('join', ({ name, sessionKey }) => {
+  socket.on('set_card', ({ card }) => {
+    const key = keyOf(socket.id);
+    const sess = key ? sessions[key] : null;
+    if (sess && Array.isArray(card) && card.length === 25) {
+      sess.card = card;
+      const room = rooms[sess.roomId];
+      if (room) room.broadcastState();
+    }
+  });
+
+  socket.on('join', ({ name, sessionKey, card }) => {
     const trimmed = name.trim().slice(0, 20) || 'Anonymous';
     const key = sessionKey || makeSessionKey(trimmed);
     const existing = sessions[key];
@@ -581,10 +622,16 @@ io.on('connection', (socket) => {
       room = rooms[existing.roomId];
 
       if (room && (room.gameStarted || room.countdownActive || room.turnOrder.includes(key))) {
-        // Rejoin active room (Rule 4)
+        // Rejoin active room — FORCE active player status (NOT spectator)
         color = existing.color;
-        isSpectator = existing.isSpectator;
+        isSpectator = false;
+        existing.isSpectator = false;
         isRejoin = true;
+
+        const lIdx = waitingLobby.indexOf(key);
+        if (lIdx !== -1) waitingLobby.splice(lIdx, 1);
+
+        if (Array.isArray(card) && card.length === 25) existing.card = card;
 
         if (existing.graceTimer) {
           clearTimeout(existing.graceTimer);
@@ -599,14 +646,14 @@ io.on('connection', (socket) => {
         socketMap[socket.id] = key;
 
         socket.join(room.id);
-        console.log(`🔄 ${trimmed} REJOINED [${room.id}] — turn index=${room.currentTurnIndex}`);
+        console.log(`🔄 ${trimmed} REJOINED [${room.id}] AS ACTIVE PLAYER — turn index=${room.currentTurnIndex}`);
 
         if (room.getCurrentTurnKey() === key && !room.turnTimer && room.gameStarted) {
           room.startTurnTimer();
         }
 
       } else {
-        // Return after game ended (Rule 5): Clear old session, route to FIFO queue
+        // Return after game ended: Clear old session, route to FIFO queue
         if (existing.graceTimer) { clearTimeout(existing.graceTimer); existing.graceTimer = null; }
         delete sessions[key];
         color = getNextColor();
@@ -615,7 +662,7 @@ io.on('connection', (socket) => {
         sessions[key] = {
           name: trimmed, color, isSpectator: true,
           socketId: socket.id, calledNums: [], graceTimer: null,
-          roomId: 'lobby'
+          roomId: 'lobby', card: Array.isArray(card) ? card : []
         };
         socketMap[socket.id] = key;
         if (!waitingLobby.includes(key)) waitingLobby.push(key);
@@ -629,14 +676,13 @@ io.on('connection', (socket) => {
 
     } else {
       // ── NEW PLAYER ──
-      // Enqueue in strict FIFO queue and process matchmaking
       color = getNextColor();
       const primary = getOrCreatePrimaryRoom();
       room = primary;
       sessions[key] = {
         name: trimmed, color, isSpectator: true,
         socketId: socket.id, calledNums: [], graceTimer: null,
-        roomId: room.id
+        roomId: room.id, card: Array.isArray(card) ? card : []
       };
       socketMap[socket.id] = key;
       if (!waitingLobby.includes(key)) waitingLobby.push(key);
@@ -716,6 +762,7 @@ io.on('connection', (socket) => {
     // First click game start for 2-4 player lobbies
     if (!room.gameStarted) {
       room.gameStarted = true;
+      room.gameStartedAt = Date.now();
       console.log(`🎮 Game automatically started in [${room.id}] by ${sess.name} calling number ${num}`);
     }
 
@@ -741,17 +788,41 @@ io.on('connection', (socket) => {
     if (room.getCurrentTurnKey() === BOT_KEY) room.scheduleBotTurn();
   });
 
-  socket.on('bingo_claimed', ({ winners }) => {
+
+
+  socket.on('bingo_claimed', () => {
     const key = keyOf(socket.id);
     const sess = key ? sessions[key] : null;
-    if (!sess) return;
+    if (!sess || sess.isSpectator) return;
     const room = rooms[sess.roomId] || getOrCreatePrimaryRoom();
-    room.clearTurnTimer(); room.cancelBotTurn(); room.cancelBotBingoTimer();
-    let finalWinners = winners || [{ name: sess.name, color: sess.color }];
-    if (room.checkBotBingo() && !finalWinners.some(w => w.name === BOT_NAME)) {
-      finalWinners.push({ name: BOT_NAME, color: BOT_COLOR });
+
+    const isPlayerValid = checkPlayerBingoOnServer(sess.card, room.selectedNumbers);
+    if (!isPlayerValid) {
+      socket.emit('error_msg', { message: '⚠ Invalid Bingo claim! Card does not have 5 struck lines.' });
+      return;
     }
-    io.to(room.id).emit('bingo_announced', { winners: finalWinners });
+
+    room.clearTurnTimer();
+    room.cancelBotTurn();
+    room.cancelBotBingoTimer();
+
+    const verifiedWinners = [];
+    room.turnOrder.forEach(pKey => {
+      if (pKey === BOT_KEY) {
+        if (room.checkBotBingo()) verifiedWinners.push({ name: BOT_NAME, color: BOT_COLOR });
+      } else {
+        const pSess = sessions[pKey];
+        if (pSess && checkPlayerBingoOnServer(pSess.card, room.selectedNumbers)) {
+          verifiedWinners.push({ name: pSess.name, color: pSess.color });
+        }
+      }
+    });
+
+    if (verifiedWinners.length === 0) {
+      verifiedWinners.push({ name: sess.name, color: sess.color });
+    }
+
+    io.to(room.id).emit('bingo_announced', { winners: verifiedWinners });
     broadcastRoomsSummary();
   });
 

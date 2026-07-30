@@ -538,6 +538,373 @@
     .bingo-btn.secondary:hover{border-color:var(--accent2);color:var(--accent2);}
 
     /* ══════════════════════════════
+       LIVE MATCH DASHBOARD
+    ══════════════════════════════ */
+    #spec-dashboard {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg, 18px);
+      padding: 1rem 1.15rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.07);
+    }
+    #spec-dashboard.hidden { display: none !important; }
+
+    .dash-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1.5px solid var(--border);
+    }
+    .dash-status-left {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .dash-room-name {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: 0.5px;
+    }
+    .dash-status-right {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .dash-stat-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.6rem;
+      border-radius: 8px;
+      font-size: 0.76rem;
+      color: var(--text-dim);
+    }
+    .dash-stat-chip strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .dash-recent-strip-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      margin: 0.75rem 0;
+      overflow: hidden;
+    }
+    .dash-recent-label {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      flex-shrink: 0;
+    }
+    .dash-recent-strip {
+      display: flex;
+      gap: 0.45rem;
+      overflow-x: auto;
+      padding: 0.2rem 0;
+      -webkit-overflow-scrolling: touch;
+    }
+    .recent-empty {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      font-style: italic;
+    }
+    .dash-num-chip {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: #fff;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      transition: all 0.2s ease;
+    }
+    .dash-num-chip.latest-chip {
+      transform: scale(1.18);
+      box-shadow: 0 0 14px rgba(224,92,42,0.5);
+      border: 2px solid #FFF;
+      animation: numPulse 1s ease-in-out infinite alternate;
+    }
+    @keyframes numPulse {
+      from { transform: scale(1.15); }
+      to { transform: scale(1.24); }
+    }
+
+    .dash-bottom-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 0.85rem;
+      margin-top: 0.75rem;
+    }
+    @media (max-width: 700px) {
+      .dash-bottom-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .dash-box-title {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .dash-leaderboard-box, .dash-room-stats-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem;
+    }
+    .dash-leaderboard-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .dash-rank-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.35rem 0.6rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      transition: all 0.2s ease;
+    }
+    .dash-rank-item.is-winner {
+      background: #FEF3C7;
+      border-color: #FCD34D;
+      color: #92400E;
+    }
+    .dash-rank-left {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .dash-rank-pos {
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--text-dim);
+      width: 20px;
+    }
+    .dash-rank-name {
+      font-weight: 700;
+      color: var(--text);
+    }
+    .dash-rank-lines {
+      font-weight: 800;
+      font-size: 0.78rem;
+      color: var(--accent);
+    }
+
+    .dash-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      text-align: center;
+    }
+    .dash-stat-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.3rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .dash-stat-item .stat-num {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--accent);
+    }
+    .dash-stat-item .stat-lbl {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    /* ══════════════════════════════
+       SPECTATOR PLAYER SELECTOR BAR (STICKY)
+    ══════════════════════════════ */
+    #spec-player-bar-container {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg, 16px);
+      padding: 0.85rem 1rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      backdrop-filter: blur(8px);
+    }
+    #spec-player-bar-container.hidden { display: none !important; }
+
+    .spec-bar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 0.65rem;
+    }
+
+    .spec-live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: #059669;
+      background: #D1FAE5;
+      padding: 0.15rem 0.5rem;
+      border-radius: 10px;
+      font-size: 0.68rem;
+      font-weight: 800;
+    }
+
+    .spec-player-selector {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      overflow-x: auto;
+      padding-bottom: 0.4rem;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+    }
+    @media (max-width: 600px) {
+      .spec-player-selector {
+        flex-wrap: nowrap;
+      }
+    }
+    .spec-player-selector::-webkit-scrollbar { height: 4px; }
+    .spec-player-selector::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+
+    .spec-player-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.85rem;
+      background: var(--surface2);
+      border: 2px solid transparent;
+      border-radius: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      user-select: none;
+    }
+    .spec-player-pill:hover {
+      background: var(--surface);
+      border-color: var(--border);
+      transform: translateY(-1px);
+    }
+    .spec-player-pill.active {
+      background: #FFF;
+      border-color: var(--accent);
+      color: var(--text);
+      box-shadow: 0 4px 14px rgba(224,92,42,0.18);
+    }
+    .spec-player-pill .pill-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .spec-player-pill.is-offline {
+      opacity: 0.55;
+      filter: grayscale(0.5);
+    }
+    .spec-player-pill .pill-tag {
+      font-size: 0.68rem;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .spec-player-status-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.65rem;
+      padding-top: 0.65rem;
+      border-top: 1.5px solid var(--border);
+    }
+    .spec-status-left {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+    .spec-status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .spec-status-name {
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .spec-status-role {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+    .spec-status-badge {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      padding: 0.25rem 0.65rem;
+      border-radius: 12px;
+      background: var(--surface2);
+      color: var(--text-dim);
+    }
+
+    /* CARD FADE IN TRANSITION */
+    .bingo-grid.card-transition {
+      animation: cardFadeIn 0.22s ease-out;
+    }
+    @keyframes cardFadeIn {
+      from { opacity: 0.35; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .b-cell.b-win {
+      box-shadow: inset 0 0 0 3px #FFD700, 0 0 12px rgba(255,215,0,0.5);
+      animation: winGlow 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes winGlow {
+      from { box-shadow: inset 0 0 0 3px #FFD700, 0 0 8px rgba(255,215,0,0.4); }
+      to { box-shadow: inset 0 0 0 4px #FFD700, 0 0 18px rgba(255,215,0,0.8); }
+    }
+
+    /* ══════════════════════════════
        RESPONSIVE
     ══════════════════════════════ */
     @media(max-width:900px){
@@ -718,7 +1085,28 @@
         <div class="bingo-letter-box" id="bl-O" data-l="O"><div class="bl-letter">O</div><div class="bl-sub" id="bls-O">—</div></div>
       </div>
 
-      <div class="panel-title">YOUR BINGO CARD</div>
+
+
+      <!-- SPECTATOR PLAYER SELECTOR & STATUS BAR -->
+      <div id="spec-player-bar-container" class="hidden">
+        <div class="spec-bar-header">
+          <span><span class="spec-live-pill">🟢 LIVE</span> SELECT PLAYER TO VIEW CARD</span>
+          <span class="spec-bar-sub" id="spec-bar-sub-count">5 Players Live</span>
+        </div>
+        <div class="spec-player-selector" id="spec-player-selector"></div>
+        <div class="spec-player-status-card" id="spec-player-status-card">
+          <div class="spec-status-left">
+            <div class="spec-status-dot" id="spec-status-dot"></div>
+            <div class="spec-status-info">
+              <div class="spec-status-name" id="spec-status-name">Player Name</div>
+              <div class="spec-status-role" id="spec-status-role">Playing · 0 lines complete</div>
+            </div>
+          </div>
+          <div class="spec-status-badge" id="spec-status-badge">CURRENT TURN</div>
+        </div>
+      </div>
+
+      <div class="panel-title" id="card-panel-title">YOUR BINGO CARD</div>
       <div class="bingo-card-wrap" id="bingo-card-wrap">
         <div class="card-tap-hint" id="card-tap-hint">Tap any number to call it instantly</div>
         <div class="bingo-header">
@@ -955,15 +1343,19 @@ function updateBotBanner(botActive) {
 
 /* ── SPECTATOR UI ── */
 function applySpectatorUI(on) {
-  const logo   = $('logo-small');
-  const banner = $('spectator-banner');
-  const stats  = $('spec-stats-bar');
-  const specSub = $('spec-banner-sub');
+  const logo       = $('logo-small');
+  const banner     = $('spectator-banner');
+  const stats      = $('spec-stats-bar');
+  const specSub    = $('spec-banner-sub');
+  const latestWrap = document.querySelector('.latest-number-wrap');
+  const lettersWrap = document.querySelector('.bingo-letters-wrap');
 
   if (on) {
     if (logo) logo.textContent = '👀 BINGO BLASTER — SPECTATING';
     if (banner) banner.classList.add('visible');
     if (stats) stats.classList.add('visible');
+    if (latestWrap) latestWrap.classList.remove('hidden');
+    if (lettersWrap) lettersWrap.classList.remove('hidden');
 
     if (specSub) {
       if (waitingLobbyInQueue) {
@@ -979,8 +1371,240 @@ function applySpectatorUI(on) {
     if (logo) logo.textContent = '🎱 BINGO BLASTER';
     if (banner) banner.classList.remove('visible');
     if (stats) stats.classList.remove('visible');
+    if (latestWrap) latestWrap.classList.remove('hidden');
+    if (lettersWrap) lettersWrap.classList.remove('hidden');
   }
   updateActiveRoomsPanelVisibility();
+}
+
+let roomPlayers = [];
+let specSelectedPlayerId = null;
+let specElapsedSec = 0;
+
+function fmtTimer(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+/* ── LIVE MATCH DASHBOARD LOGIC ── */
+function renderSpecDashboard() {
+  const dash = $('spec-dashboard');
+  if (!dash) return;
+
+  if (!amSpectator) {
+    dash.classList.add('hidden');
+    return;
+  }
+
+  const activePlayers = roomPlayers.filter(p => !p.isSpectator);
+  const spectatorPlayers = roomPlayers.filter(p => p.isSpectator);
+
+  if (activePlayers.length === 0 && spectatorPlayers.length === 0) {
+    dash.classList.add('hidden');
+    return;
+  }
+
+  dash.classList.remove('hidden');
+
+  const roomNameEl = $('dash-room-name');
+  if (roomNameEl) roomNameEl.textContent = currentRoomId ? currentRoomId.replace('room_', 'Room ') : 'Room 1';
+
+  const timerEl = $('dash-timer');
+  if (timerEl) timerEl.textContent = fmtTimer(specElapsedSec || 0);
+
+  const aliveEl = $('dash-alive-cnt');
+  if (aliveEl) aliveEl.textContent = `${activePlayers.length}/5`;
+
+  const calledEl = $('dash-called-cnt');
+  if (calledEl) calledEl.textContent = `${calledNumbers.length}/25`;
+
+  // Render Recently Called Numbers Strip (last 15)
+  const recentStrip = $('dash-recent-strip');
+  if (recentStrip) {
+    if (calledNumbers.length === 0) {
+      recentStrip.innerHTML = '<div class="recent-empty">Waiting for first call...</div>';
+    } else {
+      recentStrip.innerHTML = '';
+      const recentList = calledNumbers.slice(-15);
+      recentList.forEach((item, idx) => {
+        const isLatest = idx === recentList.length - 1;
+        const chip = document.createElement('div');
+        chip.className = `dash-num-chip ${isLatest ? 'latest-chip' : ''}`;
+        chip.style.background = item.playerColor;
+        chip.textContent = item.number;
+        chip.title = `Called by ${item.playerName}`;
+        recentStrip.appendChild(chip);
+      });
+    }
+  }
+
+  // Render Live Leaderboard
+  const lbList = $('dash-leaderboard-list');
+  if (lbList) {
+    lbList.innerHTML = '';
+    const rankedPlayers = [...activePlayers].map(p => {
+      const cardNums = p.card || [];
+      const lines = cardNums.length === 25 ? getCompletedLinesForCard(cardNums, calledSet).length : 0;
+      return { ...p, linesCount: Math.min(lines, 5) };
+    }).sort((a, b) => b.linesCount - a.linesCount);
+
+    rankedPlayers.forEach((p, idx) => {
+      const item = document.createElement('div');
+      const isWinner = p.linesCount >= 5;
+      item.className = `dash-rank-item ${isWinner ? 'is-winner' : ''}`;
+      
+      let badgeTag = `${p.linesCount}/5 lines`;
+      if (isWinner) badgeTag = '🏆 BINGO';
+      else if (p.isCurrentTurn) badgeTag = '🎯 TURN';
+
+      item.innerHTML = `
+        <div class="dash-rank-left">
+          <span class="dash-rank-pos">#${idx + 1}</span>
+          <div class="pill-dot" style="background:${p.color}"></div>
+          <span class="dash-rank-name">${esc(p.name)}</span>
+        </div>
+        <div class="dash-rank-lines">${badgeTag}</div>
+      `;
+      lbList.appendChild(item);
+    });
+  }
+
+  // Render Room Stats
+  const dsTotal = $('ds-total');
+  const dsActive = $('ds-active');
+  const dsWinners = $('ds-winners');
+  const dsSpecs = $('ds-specs');
+
+  const winnersCount = activePlayers.filter(p => {
+    const cardNums = p.card || [];
+    return cardNums.length === 25 && getCompletedLinesForCard(cardNums, calledSet).length >= 5;
+  }).length;
+
+  if (dsTotal) dsTotal.textContent = roomPlayers.length;
+  if (dsActive) dsActive.textContent = activePlayers.length;
+  if (dsWinners) dsWinners.textContent = winnersCount;
+  if (dsSpecs) dsSpecs.textContent = spectatorPlayers.length;
+}
+
+/* ── SPECTATOR PLAYER SELECTOR LOGIC ── */
+function renderSpecPlayerSelector() {
+  const container = $('spec-player-bar-container');
+  const selector = $('spec-player-selector');
+  const countBadge = $('spec-bar-sub-count');
+  if (!container || !selector) return;
+
+  if (!amSpectator) {
+    container.classList.add('hidden');
+    return;
+  }
+
+  let activePlayers = roomPlayers.filter(p => !p.isSpectator);
+  if (activePlayers.length === 0) {
+    activePlayers = roomPlayers;
+  }
+
+  if (activePlayers.length === 0) {
+    container.classList.add('hidden');
+    return;
+  }
+
+  container.classList.remove('hidden');
+  if (countBadge) countBadge.textContent = `${activePlayers.length} ${activePlayers.length === 1 ? 'Player' : 'Players'} Live`;
+
+  if (!specSelectedPlayerId || !activePlayers.some(p => p.id === specSelectedPlayerId)) {
+    specSelectedPlayerId = activePlayers[0].id;
+  }
+
+  selector.innerHTML = '';
+  activePlayers.forEach((p, idx) => {
+    const pill = document.createElement('div');
+    const isSelected = (p.id === specSelectedPlayerId);
+    pill.className = `spec-player-pill ${isSelected ? 'active' : ''} ${p.isOffline ? 'is-offline' : ''}`;
+    
+    let tagHtml = '';
+    if (p.isBot) {
+      tagHtml = '<span class="pill-tag" style="background:#8B5CF6;color:#fff;">🤖 BOT</span>';
+    } else if (p.isCurrentTurn) {
+      tagHtml = '<span class="pill-tag" style="background:#E05C2A;color:#fff;">TURN</span>';
+    } else if (p.isOffline) {
+      tagHtml = '<span class="pill-tag" style="background:#9CA3AF;color:#fff;">OFFLINE</span>';
+    } else {
+      tagHtml = `<span class="pill-tag" style="background:var(--surface2);color:var(--text-dim);">P${idx+1}</span>`;
+    }
+
+    const lines = (p.card && p.card.length === 25) ? getCompletedLinesForCard(p.card, calledSet).length : 0;
+    pill.title = `${p.name} · ${lines}/5 Lines · Status: ${p.isOffline ? 'Offline' : (p.isCurrentTurn ? 'Current Turn' : 'Playing')}`;
+
+    pill.innerHTML = `
+      <div class="pill-dot" style="background:${p.color}"></div>
+      <span>${esc(p.name)}</span>
+      ${tagHtml}
+    `;
+
+    pill.addEventListener('click', () => {
+      specSelectedPlayerId = p.id;
+      renderSpecPlayerSelector();
+      buildBingoGrid();
+    });
+
+    selector.appendChild(pill);
+
+    if (isSelected) {
+      setTimeout(() => {
+        pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }, 50);
+    }
+  });
+
+  updateSpecPlayerStatusCard();
+}
+
+function updateSpecPlayerStatusCard() {
+  let activePlayers = roomPlayers.filter(p => !p.isSpectator);
+  if (activePlayers.length === 0) activePlayers = roomPlayers;
+  const selectedP = activePlayers.find(p => p.id === specSelectedPlayerId) || activePlayers[0];
+  if (!selectedP) return;
+
+  const dot = $('spec-status-dot');
+  const nameEl = $('spec-status-name');
+  const roleEl = $('spec-status-role');
+  const badgeEl = $('spec-status-badge');
+
+  if (dot) dot.style.background = selectedP.color;
+  if (nameEl) nameEl.textContent = selectedP.name;
+
+  const cardNums = selectedP.card || [];
+  const linesCount = cardNums.length === 25 ? getCompletedLinesForCard(cardNums, calledSet).length : 0;
+  const struckCount = Math.min(linesCount, 5);
+
+  if (roleEl) {
+    roleEl.textContent = `${struckCount}/5 lines completed · ${cardNums.length === 25 ? 25 : 0} numbers on card`;
+  }
+
+  if (badgeEl) {
+    if (struckCount >= 5) {
+      badgeEl.textContent = '🏆 WINNER!';
+      badgeEl.style.cssText = 'background:#FEF3C7;color:#92400E;border:1.5px solid #FCD34D;';
+    } else if (selectedP.isBot) {
+      badgeEl.textContent = '🤖 BINGOBOT';
+      badgeEl.style.cssText = 'background:#F5F3FF;color:#5B21B6;border:1px solid #C4B5FD;';
+    } else if (selectedP.isCurrentTurn) {
+      badgeEl.textContent = '🎯 CURRENT TURN';
+      badgeEl.style.cssText = 'background:#FEE2E2;color:#C2410C;border:1px solid #FDBA74;';
+    } else if (selectedP.isOffline) {
+      badgeEl.textContent = '⏸ OFFLINE';
+      badgeEl.style.cssText = 'background:#F3F4F6;color:#6B7280;border:1px solid #E5E7EB;';
+    } else {
+      badgeEl.textContent = '🎮 PLAYING';
+      badgeEl.style.cssText = 'background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;';
+    }
+  }
+}
+
+function getCompletedLinesForCard(card, calledNumbersSet) {
+  if (!card || card.length !== 25) return [];
+  return ALL_WIN_LINES.map((line, i) => ({ line, idx: i })).filter(({ line }) => line.every(pos => calledNumbersSet.has(card[pos])));
 }
 
 /* ── CARD & GRID ── */
@@ -999,15 +1623,41 @@ function buildBingoGrid() {
   const hintEl  = $('card-tap-hint');
   grid.innerHTML = '';
 
+  if (grid) {
+    grid.classList.remove('card-transition');
+    void grid.offsetWidth;
+    grid.classList.add('card-transition');
+  }
+
+  let displayCard = myCard;
+  let targetName = 'YOUR';
+
+  if (amSpectator) {
+    let activePlayers = roomPlayers.filter(p => !p.isSpectator);
+    if (activePlayers.length === 0) activePlayers = roomPlayers;
+    const selectedP = activePlayers.find(p => p.id === specSelectedPlayerId) || activePlayers[0];
+    if (selectedP) {
+      targetName = selectedP.name.toUpperCase();
+      if (Array.isArray(selectedP.card) && selectedP.card.length === 25) {
+        displayCard = selectedP.card;
+      }
+    }
+  }
+
+  const titleEl = $('card-panel-title');
+  if (titleEl) {
+    titleEl.textContent = amSpectator ? `VIEWING ${targetName}'S BINGO CARD` : 'YOUR BINGO CARD';
+  }
+
   if (hintEl) {
     if (amSpectator) {
-      hintEl.textContent = '👀 Watching live — card locked this round';
+      hintEl.textContent = `👀 Viewing ${targetName}'s card live — click player above to switch view`;
     } else {
       hintEl.textContent = isMyTurn() ? 'Tap any number to call it instantly' : 'Wait for your turn...';
     }
   }
 
-  myCard.forEach((num, idx) => {
+  displayCard.forEach((num, idx) => {
     const cell = document.createElement('div');
     cell.className = 'b-cell';
     cell.id = `bc-${idx}`;
@@ -1027,12 +1677,25 @@ function buildBingoGrid() {
     }
     grid.appendChild(cell);
   });
+
+  if (amSpectator) updateLetterBoxesForCard(displayCard);
+  else updateLetterBoxes(false);
 }
 
 function updateBingoGrid(latestNum) {
-  myCard.forEach((num, idx) => {
+  let displayCard = myCard;
+  if (amSpectator) {
+    const activePlayers = roomPlayers.filter(p => !p.isSpectator);
+    const selectedP = activePlayers.find(p => p.id === specSelectedPlayerId) || activePlayers[0];
+    if (selectedP && Array.isArray(selectedP.card) && selectedP.card.length === 25) {
+      displayCard = selectedP.card;
+    }
+  }
+
+  displayCard.forEach((num, idx) => {
     const cell = $(`bc-${idx}`);
     if (!cell) return;
+    cell.textContent = num;
     if (calledSet.has(num)) {
       const e = calledNumbers.find(n => n.number === num);
       cell.classList.add('b-called');
@@ -1046,17 +1709,30 @@ function updateBingoGrid(latestNum) {
     } else {
       const disabled = !isMyTurn() || amSpectator;
       cell.classList.toggle('b-disabled', disabled);
+      cell.classList.remove('b-called');
+      cell.style.background = '';
     }
   });
 
-  const h = $('card-tap-hint');
-  if (h) {
-    if (amSpectator) {
-      h.textContent = '👀 Watching live — card locked this round';
-    } else {
-      h.textContent = isMyTurn() ? 'Tap any number to call it instantly' : 'Wait for your turn...';
-    }
+  if (amSpectator) {
+    updateLetterBoxesForCard(displayCard);
+    updateSpecPlayerStatusCard();
   }
+}
+
+function updateLetterBoxesForCard(card) {
+  const completed = getCompletedLinesForCard(card, calledSet);
+  const struckCount = Math.min(completed.length, 5);
+  LETTERS.forEach((letter, i) => {
+    const box  = $(`bl-${letter}`);
+    const sub  = $(`bls-${letter}`);
+    if (!box) return;
+    const isStruck = i < struckCount;
+    box.classList.toggle('struck', isStruck);
+    if (sub) sub.textContent = (isStruck && completed[i]) ? LINE_LABELS[completed[i].idx] : '—';
+  });
+  const winPos = new Set(completed.flatMap(c => c.line));
+  card.forEach((_, idx) => { const c=$(`bc-${idx}`); if(c) c.classList.toggle('b-win', winPos.has(idx)); });
 }
 
 function getCompletedLines() {
@@ -1190,7 +1866,7 @@ function joinGame() {
     return;
   }
   myCard = generateCard();
-  socket.emit('join', { name });
+  socket.emit('join', { name, card: myCard });
 }
 $('join-btn').addEventListener('click', joinGame);
 $('name-input').addEventListener('keydown', e=>{ if(e.key==='Enter') joinGame(); });
@@ -1214,6 +1890,7 @@ socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, 
   if (!myCard || myCard.length === 0) myCard = generateCard();
 
   saveSession({ name: playerName, sessionKey, card: myCard, isSpectator });
+  socket.emit('set_card', { card: myCard });
 
   sendToGoogleSheet(playerName);
 
@@ -1241,12 +1918,11 @@ socket.on('state_update', ({
   activePlayerCount: activeCnt,
   currentTurnPlayerId: turnId,
   gameStarted,
+  elapsedSeconds,
   countdownActive,
   countdownSec,
   turnRemainingSeconds,
   botActive,
-  ownerKey,
-  ownerName,
   globalPlayerCount,
   activeRoomsCount
 }) => {
@@ -1255,11 +1931,10 @@ socket.on('state_update', ({
   currentTurnPlayerId = turnId;
   activePlayerCount   = activeCnt || 0;
   isBotActive         = !!botActive;
-  roomOwnerKey        = ownerKey;
-  roomOwnerName       = ownerName || '';
-  isRoomOwner         = (mySessionKey && ownerKey && mySessionKey === ownerKey);
+  roomPlayers         = players || [];
+  specElapsedSec      = elapsedSeconds || 0;
 
-  // Global Statistics (Rule 9)
+  // Global Statistics
   if (globalPlayerCount != null) $('player-count').textContent = globalPlayerCount;
   if (activeRoomsCount != null) $('rooms-count').textContent = activeRoomsCount;
 
@@ -1267,13 +1942,10 @@ socket.on('state_update', ({
   updateBotBanner(isBotActive);
   updateActiveRoomsPanelVisibility();
 
-  const specSub = $('spec-banner-sub');
-  if (specSub && amSpectator) {
-    if (isBotActive) {
-      specSub.textContent = 'Player 1 is playing with the bot — you will join next game';
-    } else {
-      specSub.textContent = 'You joined mid-game. You will play in the next game.';
-    }
+  if (amSpectator) {
+    renderSpecDashboard();
+    renderSpecPlayerSelector();
+    buildBingoGrid();
   }
 
   if (amSpectator) {
@@ -1362,8 +2034,6 @@ socket.on('state_update', ({
     let rightTag = '';
     if (p.isBot) {
       rightTag = '<span class="bot-tag">🤖 BOT</span>';
-    } else if (p.isSpectator) {
-      rightTag = '<span class="spec-watch-tag">👀 WATCH</span>';
     } else if (p.isCurrentTurn) {
       rightTag = '<span class="turn-tag">TURN</span>';
     }
@@ -1468,12 +2138,14 @@ socket.on('rooms_summary', ({ rooms, waitingCount, globalPlayerCount, activeRoom
       watchBtnHtml = `<button class="watch-btn" onclick="spectateRoom('${r.id}')">Watch</button>`;
     }
 
+    const specCountTag = (r.spectatorCount != null && r.spectatorCount > 0) ? ` &nbsp;·&nbsp; 👀 Spectators: ${r.spectatorCount}` : '';
+
     card.innerHTML = `
       <div class="room-card-info">
         <div class="room-name">${esc(r.name)}${currentTag}</div>
         <div class="room-meta">
           <span class="room-status-badge ${statusClass}">${esc(r.status)}</span>
-          <span>${r.playerCount}/${r.maxPlayers}${botBadge}</span>
+          <span>${r.playerCount}/${r.maxPlayers}${botBadge}${specCountTag}</span>
         </div>
       </div>
       ${watchBtnHtml}
