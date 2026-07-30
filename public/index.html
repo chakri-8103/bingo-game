@@ -958,10 +958,23 @@ function applySpectatorUI(on) {
   const logo   = $('logo-small');
   const banner = $('spectator-banner');
   const stats  = $('spec-stats-bar');
+  const specSub = $('spec-banner-sub');
+
   if (on) {
     if (logo) logo.textContent = '👀 BINGO BLASTER — SPECTATING';
     if (banner) banner.classList.add('visible');
     if (stats) stats.classList.add('visible');
+
+    if (specSub) {
+      if (waitingLobbyInQueue) {
+        const posStr = queuePosition ? `#${queuePosition}` : '#1';
+        specSub.innerHTML = `⏳ In FIFO Waiting Queue <strong>(Position ${posStr})</strong> — You will automatically join the next available game!`;
+      } else if (isBotActive) {
+        specSub.textContent = 'Player 1 is playing with BingoBot — you will join the next game';
+      } else {
+        specSub.textContent = 'You joined mid-game. You will automatically play in the next game.';
+      }
+    }
   } else {
     if (logo) logo.textContent = '🎱 BINGO BLASTER';
     if (banner) banner.classList.remove('visible');
@@ -1185,13 +1198,14 @@ $('name-input').addEventListener('keydown', e=>{ if(e.key==='Enter') joinGame();
 /* ══════════════════════════════════
    SOCKET EVENTS
 ══════════════════════════════════ */
-socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, sessionKey, turnRemainingSeconds, inWaitingLobby, queuePosition}) => {
+socket.on('joined', ({playerId, playerName, playerColor, isSpectator, isRejoin, sessionKey, turnRemainingSeconds, inWaitingLobby, queuePosition: qPos}) => {
   myId         = playerId;
   myName       = playerName;
   myColor      = playerColor;
   amSpectator  = isSpectator;
   mySessionKey = sessionKey;
   waitingLobbyInQueue = !!inWaitingLobby;
+  queuePosition = qPos || 0;
 
   $('my-name-display').textContent = playerName;
   $('my-dot').style.background     = playerColor;
@@ -1470,27 +1484,28 @@ socket.on('rooms_summary', ({ rooms, waitingCount, globalPlayerCount, activeRoom
   updateActiveRoomsPanelVisibility();
 });
 
-socket.on('lobby_update', ({ inWaitingLobby, queuePosition }) => {
+socket.on('lobby_update', ({ inWaitingLobby, queuePosition: qPos }) => {
   waitingLobbyInQueue = !!inWaitingLobby;
-  if (inWaitingLobby) {
-    const qVal = $('queue-pos-val');
-    if (qVal) qVal.textContent = `#${queuePosition}`;
-    $('waiting-overlay').classList.remove('hidden');
-  }
+  queuePosition = qPos || 0;
+  const qVal = $('queue-pos-val');
+  if (qVal) qVal.textContent = `#${queuePosition}`;
+  updateWaitingOverlay();
   updateActiveRoomsPanelVisibility();
+  if (amSpectator) applySpectatorUI(true);
 });
 
 socket.on('game_ready', ({ roomId, roomName }) => {
   currentRoomId = roomId;
   amSpectator = false;
   waitingLobbyInQueue = false;
+  queuePosition = 0;
   $('waiting-overlay').classList.add('hidden');
   applySpectatorUI(false);
   myCard = generateCard();
   const saved = loadSession();
   if (saved) saveSession({ ...saved, card: myCard, isSpectator: false });
   buildBingoGrid();
-  showToast(`🎉 Your game is ready! Joined ${roomName || 'Room'}!`, 'join', 4500);
+  showToast(`🎉 Seat found! Joined ${roomName || 'Room'}!`, 'join', 4500);
   updateActiveRoomsPanelVisibility();
 });
 
