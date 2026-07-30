@@ -14,9 +14,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // turnOrder stores SESSION KEYS (stable). socketMap is lookup.
 // ─────────────────────────────────────────────────────────────
 
-const sessions = {};   // sessionKey → { name, color, isSpectator, socketId, calledNums, graceTimer, roomId, card }
-const socketMap = {};   // socketId   → sessionKey
-const waitingLobby = []; // FIFO Queue of sessionKeys waiting for a game room
+const sessions = {};   // sessionKey → { name, color, socketId, calledNums, graceTimer, roomId, card }
+const socketMap = {};  // socketId   → sessionKey
 
 const TURN_TIMEOUT_SECONDS = 30;
 const TURN_TIMEOUT_MS = TURN_TIMEOUT_SECONDS * 1000;
@@ -115,7 +114,7 @@ class GameRoom {
         if (!this.botCard || this.botCard.length !== 25) this.botCard = this.generateBotCard();
         return {
           id: BOT_KEY, name: BOT_NAME, color: BOT_COLOR,
-          isSpectator: false, isCurrentTurn: key === curKey, isBot: true,
+          isCurrentTurn: key === curKey, isBot: true,
           isOffline: false, card: this.botCard || []
         };
       }
@@ -126,26 +125,14 @@ class GameRoom {
       }
       return {
         id: s.socketId || key, name: s.name, color: s.color,
-        isSpectator: false, isCurrentTurn: key === curKey, isBot: false,
+        isCurrentTurn: key === curKey, isBot: false,
         isOffline: !s.socketId, card: s.card || []
       };
     }).filter(Boolean);
   }
 
-  buildSpectatorList() {
-    return Object.entries(sessions)
-      .filter(([k, s]) => s.roomId === this.id && s.isSpectator && s.socketId)
-      .map(([k, s]) => ({
-        id: s.socketId, name: s.name, color: s.color,
-        isSpectator: true, isCurrentTurn: false, isBot: false,
-        isOffline: false, card: s.card || []
-      }));
-  }
-
   broadcastState() {
     const active = this.buildPlayerList();
-    const specs = this.buildSpectatorList();
-    const all = [...active, ...specs];
     const actCount = active.length;
 
     let turnPlayerId = null;
@@ -160,10 +147,9 @@ class GameRoom {
 
     io.to(this.id).emit('state_update', {
       selectedNumbers: this.selectedNumbers,
-      players: all,
-      playerCount: all.filter(p => !p.isBot).length,
+      players: active,
+      playerCount: actCount,
       activePlayerCount: actCount,
-      spectatorCount: specs.length,
       currentTurnPlayerId: turnPlayerId,
       gameStarted: this.gameStarted,
       elapsedSeconds: this.getElapsedSeconds(),
@@ -221,7 +207,7 @@ class GameRoom {
     }, TURN_TIMEOUT_MS);
   }
 
-  // ── LOBBY AUTO-START COUNTDOWN (Triggered ONLY when 5th real player joins) ──
+  // ── LOBBY AUTO-START COUNTDOWN (Triggered when 5th real player joins) ──
   startLobbyCountdown() {
     if (this.gameStarted || this.countdownActive) return;
     this.countdownActive = true;
@@ -340,7 +326,7 @@ class GameRoom {
     this.botCard = this.generateBotCard();
     sessions[BOT_KEY] = {
       name: BOT_NAME, color: BOT_COLOR,
-      isSpectator: false, socketId: BOT_KEY, roomId: this.id, card: this.botCard
+      socketId: BOT_KEY, roomId: this.id, card: this.botCard
     };
     if (!this.turnOrder.includes(BOT_KEY)) this.turnOrder.push(BOT_KEY);
     console.log(`🤖 Bot added to [${this.id}] with fresh card`);
@@ -365,10 +351,12 @@ class GameRoom {
 
   checkAndManageBot() {
     const real = this.getRealPlayerCount();
-    // Rule 1 & 3: Add bot ONLY when real === 1 AND in non-started/non-counting-down lobby
+    // Rule: Add bot ONLY when real === 1 AND in non-started/non-counting-down lobby
     if (real === 1 && !this.botActive && !this.gameStarted && !this.countdownActive) {
       this.addBot();
     } else if (real >= 2 && this.botActive) {
+      this.removeBot();
+    } else if (real === 0 && this.botActive) {
       this.removeBot();
     }
   }
@@ -390,11 +378,23 @@ class GameRoom {
 const rooms = {};
 let roomCounter = 1;
 
-function getOrCreatePrimaryRoom() {
+// Find an available open lobby room (game not started, not in countdown, real players < 5)
+// Or create a new room immediately if none available.
+function findOrCreateLobbyRoom() {
+  const openRoom = Object.values(rooms).find(r => !r.gameStarted && !r.countdownActive && r.getRealPlayerCount() < 5);
+  if (openRoom) {
+    return openRoom;
+  }
   if (!rooms['room_1']) {
     rooms['room_1'] = new GameRoom('room_1');
+    return rooms['room_1'];
   }
-  return rooms['room_1'];
+  roomCounter++;
+  const newId = `room_${roomCounter}`;
+  const newRoom = new GameRoom(newId);
+  rooms[newId] = newRoom;
+  console.log(`🏠 Created new room [${newId}]`);
+  return newRoom;
 }
 
 // ── REMOVE PLAYER (grace expired or AFK kick) ──
@@ -402,60 +402,71 @@ function removePlayerFromGame(key, reason) {
   const sess = sessions[key];
   if (!sess) return;
 
-  const room = rooms[sess.roomId] || getOrCreatePrimaryRoom();
+  const room = rooms[sess.roomId];
   const name = sess.name;
 
   if (sess.graceTimer) { clearTimeout(sess.graceTimer); sess.graceTimer = null; }
   if (sess.socketId && sess.socketId !== BOT_KEY) delete socketMap[sess.socketId];
 
-  const idx = room.turnOrder.indexOf(key);
-  const wasCurrentTurn = idx !== -1 && (room.currentTurnIndex % Math.max(room.turnOrder.length, 1)) === idx;
+  if (room) {
+    const idx = room.turnOrder.indexOf(key);
+    const wasCurrentTurn = idx !== -1 && (room.currentTurnIndex % Math.max(room.turnOrder.length, 1)) === idx;
 
-  if (idx !== -1) {
-    room.turnOrder.splice(idx, 1);
-    if (room.turnOrder.length > 0) {
-      if (idx < room.currentTurnIndex) room.currentTurnIndex--;
-      else if (idx === room.currentTurnIndex) room.currentTurnIndex = room.currentTurnIndex % room.turnOrder.length;
-      room.currentTurnIndex = Math.max(0, room.currentTurnIndex % Math.max(room.turnOrder.length, 1));
-    } else room.currentTurnIndex = 0;
-  }
+    if (idx !== -1) {
+      room.turnOrder.splice(idx, 1);
+      if (room.turnOrder.length > 0) {
+        if (idx < room.currentTurnIndex) room.currentTurnIndex--;
+        else if (idx === room.currentTurnIndex) room.currentTurnIndex = room.currentTurnIndex % room.turnOrder.length;
+        room.currentTurnIndex = Math.max(0, room.currentTurnIndex % Math.max(room.turnOrder.length, 1));
+      } else room.currentTurnIndex = 0;
+    }
 
-  delete sessions[key];
+    delete sessions[key];
 
-  io.to(room.id).emit('player_left', { name, color: sess.color });
-  console.log(`🗑 [${room.id}] ${name} removed (${reason})`);
+    io.to(room.id).emit('player_left', { name, color: sess.color });
+    console.log(`🗑 [${room.id}] ${name} removed (${reason})`);
 
-  const real = room.getRealPlayerCount();
+    const real = room.getRealPlayerCount();
 
-  if (real === 0) {
-    room.reset();
+    if (real === 0) {
+      room.reset();
+      room.broadcastState();
+      if (room.id !== 'room_1') {
+        delete rooms[room.id];
+        console.log(`🧹 [Cleanup] Room [${room.id}] deleted (empty)`);
+      }
+      broadcastRoomsSummary();
+      return;
+    }
+
+    if (real === 1 && (room.gameStarted || room.countdownActive)) {
+      console.log(`🔄 [${room.id}] Real player count reduced to 1 during active game — ending game and returning to lobby with BingoBot`);
+      room.reset();
+      room.checkAndManageBot();
+      io.to(room.id).emit('game_reset', {
+        reason: 'Other players left the game. The match has been cancelled. BingoBot has joined your room.'
+      });
+      room.broadcastState();
+      broadcastRoomsSummary();
+      return;
+    }
+
+    room.checkAndManageBot();
+
+    if (wasCurrentTurn && room.gameStarted) {
+      room.clearTurnTimer();
+      if (room.turnOrder.length >= 2) {
+        if (room.getCurrentTurnKey() === BOT_KEY) room.scheduleBotTurn();
+        else room.startTurnTimer();
+      }
+    }
+
     room.broadcastState();
-    if (room.id !== 'room_1') {
-      delete rooms[room.id];
-      console.log(`🧹 [Cleanup] Room [${room.id}] deleted (empty)`);
-    }
-    broadcastRoomsSummary();
-    evaluateMatchmaking();
-    return;
+  } else {
+    delete sessions[key];
   }
 
-  room.checkAndManageBot();
-
-  if (wasCurrentTurn && room.gameStarted) {
-    room.clearTurnTimer();
-    if (room.turnOrder.length >= 2) {
-      if (room.getCurrentTurnKey() === BOT_KEY) room.scheduleBotTurn();
-      else room.startTurnTimer();
-    }
-  }
-
-  room.broadcastState();
   broadcastRoomsSummary();
-
-  // Evaluate matchmaking to fill any vacated seat if in lobby mode
-  if (!room.gameStarted && !room.countdownActive) {
-    evaluateMatchmaking();
-  }
 }
 
 function broadcastRoomsSummary() {
@@ -468,131 +479,15 @@ function broadcastRoomsSummary() {
     status: r.gameStarted ? 'Running' : (r.countdownActive ? 'Starting' : (r.selectedNumbers.length > 0 ? 'Finished' : 'Lobby')),
     playerCount: r.getRealPlayerCount() + (r.botActive ? 1 : 0),
     maxPlayers: 5,
-    spectatorCount: r.buildSpectatorList().length,
     botActive: r.botActive,
     isFull: r.getRealPlayerCount() >= 5
   }));
 
   io.emit('rooms_summary', {
     rooms: summary,
-    waitingCount: waitingLobby.length,
     globalPlayerCount: globalPlayerCount,
     activeRoomsCount: activeRooms.length
   });
-}
-
-function broadcastLobbyState() {
-  waitingLobby.forEach((key, idx) => {
-    const sock = getSocket(key);
-    if (sock) {
-      sock.emit('lobby_update', {
-        inWaitingLobby: true,
-        queuePosition: idx + 1,
-        totalWaiting: waitingLobby.length
-      });
-    }
-  });
-}
-
-// ─────────────────────────────────────────────────────────────
-// COMPREHENSIVE STRICT FIFO MATCHMAKING ENGINE
-// ─────────────────────────────────────────────────────────────
-function evaluateMatchmaking() {
-  if (waitingLobby.length === 0) return;
-
-  // Phase A: Fill available seats in ALL existing open Lobby rooms in deterministic order
-  const openLobbyRooms = Object.values(rooms).filter(r => !r.gameStarted && !r.countdownActive && r.getRealPlayerCount() < 5);
-
-  for (const targetRoom of openLobbyRooms) {
-    if (waitingLobby.length === 0) break;
-    const availableSeats = Math.max(0, 5 - targetRoom.getRealPlayerCount());
-    if (availableSeats <= 0) continue;
-
-    // Dequeue front players from waitingLobby in strict FIFO order
-    const batch = waitingLobby.splice(0, Math.min(availableSeats, waitingLobby.length));
-
-    batch.forEach(key => {
-      const sess = sessions[key];
-      if (sess) {
-        sess.roomId = targetRoom.id;
-        sess.isSpectator = false;
-        if (!targetRoom.turnOrder.includes(key)) targetRoom.turnOrder.push(key);
-        const sock = getSocket(key);
-        if (sock) {
-          sock.leave('lobby');
-          sock.join(targetRoom.id);
-          sock.emit('game_ready', {
-            roomId: targetRoom.id,
-            roomName: `Room ${targetRoom.id.replace('room_', '')}`
-          });
-        }
-      }
-    });
-
-    targetRoom.checkAndManageBot();
-
-    // Auto-start 3-2-1 countdown if room reaches 5 real players
-    if (targetRoom.getRealPlayerCount() >= 5 && !targetRoom.gameStarted && !targetRoom.countdownActive) {
-      console.log(`🚀 [Auto-Start] 5th player joined [${targetRoom.id}] — Starting 3-2-1 countdown!`);
-      targetRoom.startLobbyCountdown();
-    }
-
-    targetRoom.broadcastState();
-    console.log(`🚀 [Matchmaking] Filled ${batch.length} player(s) into existing lobby [${targetRoom.id}] in FIFO order`);
-  }
-
-  broadcastLobbyState();
-  broadcastRoomsSummary();
-
-  // Phase B: Handle excess waiting players after ALL existing lobby seats are filled
-  if (waitingLobby.length > 0) {
-    const runningRoomFutureSeats = Object.values(rooms)
-      .filter(r => r.gameStarted || r.countdownActive)
-      .reduce((sum, r) => sum + Math.max(0, 5 - r.getRealPlayerCount()), 0);
-
-    if (waitingLobby.length > runningRoomFutureSeats) {
-      // Waiting queue exceeds what running rooms can absorb upon finishing.
-      // Create a new room for the excess waiting players.
-      roomCounter++;
-      const newId = `room_${roomCounter}`;
-      const newRoom = new GameRoom(newId);
-      rooms[newId] = newRoom;
-
-      const batch = waitingLobby.splice(0, Math.min(5, waitingLobby.length));
-      batch.forEach(key => {
-        const sess = sessions[key];
-        if (sess) {
-          sess.roomId = newRoom.id;
-          sess.isSpectator = false;
-          if (!newRoom.turnOrder.includes(key)) newRoom.turnOrder.push(key);
-          const sock = getSocket(key);
-          if (sock) {
-            sock.leave('lobby');
-            sock.join(newRoom.id);
-            sock.emit('game_ready', {
-              roomId: newRoom.id,
-              roomName: `Room ${newRoom.id.replace('room_', '')}`
-            });
-          }
-        }
-      });
-
-      newRoom.checkAndManageBot();
-
-      if (newRoom.getRealPlayerCount() >= 5 && !newRoom.gameStarted && !newRoom.countdownActive) {
-        newRoom.startLobbyCountdown();
-      }
-
-      newRoom.broadcastState();
-      broadcastLobbyState();
-      broadcastRoomsSummary();
-      console.log(`🚀 [Matchmaking] Created new room [${newRoom.id}] for ${batch.length} excess waiting players`);
-
-      if (waitingLobby.length > 0) {
-        evaluateMatchmaking();
-      }
-    }
-  }
 }
 
 // ── CONNECTION & EVENT HANDLING ──
@@ -615,21 +510,16 @@ io.on('connection', (socket) => {
     const trimmed = name.trim().slice(0, 20) || 'Anonymous';
     const key = sessionKey || makeSessionKey(trimmed);
     const existing = sessions[key];
-    let color, isSpectator, isRejoin = false;
+    let color, isRejoin = false;
     let room;
 
     if (existing && key !== BOT_KEY) {
       room = rooms[existing.roomId];
 
       if (room && (room.gameStarted || room.countdownActive || room.turnOrder.includes(key))) {
-        // Rejoin active room — FORCE active player status (NOT spectator)
+        // Rejoin active room
         color = existing.color;
-        isSpectator = false;
-        existing.isSpectator = false;
         isRejoin = true;
-
-        const lIdx = waitingLobby.indexOf(key);
-        if (lIdx !== -1) waitingLobby.splice(lIdx, 1);
 
         if (Array.isArray(card) && card.length === 25) existing.card = card;
 
@@ -646,105 +536,77 @@ io.on('connection', (socket) => {
         socketMap[socket.id] = key;
 
         socket.join(room.id);
-        console.log(`🔄 ${trimmed} REJOINED [${room.id}] AS ACTIVE PLAYER — turn index=${room.currentTurnIndex}`);
+        console.log(`🔄 ${trimmed} REJOINED [${room.id}] — turn index=${room.currentTurnIndex}`);
 
         if (room.getCurrentTurnKey() === key && !room.turnTimer && room.gameStarted) {
           room.startTurnTimer();
         }
 
       } else {
-        // Return after game ended: Clear old session, route to FIFO queue
+        // Old room finished or missing — assign to an open lobby room
         if (existing.graceTimer) { clearTimeout(existing.graceTimer); existing.graceTimer = null; }
         delete sessions[key];
+
         color = getNextColor();
-        isSpectator = true;
+        room = findOrCreateLobbyRoom();
 
         sessions[key] = {
-          name: trimmed, color, isSpectator: true,
-          socketId: socket.id, calledNums: [], graceTimer: null,
-          roomId: 'lobby', card: Array.isArray(card) ? card : []
+          name: trimmed, color, socketId: socket.id,
+          calledNums: [], graceTimer: null, roomId: room.id,
+          card: Array.isArray(card) ? card : []
         };
         socketMap[socket.id] = key;
-        if (!waitingLobby.includes(key)) waitingLobby.push(key);
-        socket.join('lobby');
-        evaluateMatchmaking();
-        console.log(`⏳ ${trimmed} returned after game ended — routed to FIFO waitingLobby (pos ${waitingLobby.length})`);
-        
-        const assignedSess = sessions[key];
-        room = rooms[assignedSess ? assignedSess.roomId : null] || getOrCreatePrimaryRoom();
+        if (!room.turnOrder.includes(key)) room.turnOrder.push(key);
+        socket.join(room.id);
+
+        console.log(`🚪 ${trimmed} assigned to lobby [${room.id}]`);
       }
 
     } else {
       // ── NEW PLAYER ──
       color = getNextColor();
-      const primary = getOrCreatePrimaryRoom();
-      room = primary;
+      room = findOrCreateLobbyRoom();
+
       sessions[key] = {
-        name: trimmed, color, isSpectator: true,
-        socketId: socket.id, calledNums: [], graceTimer: null,
-        roomId: room.id, card: Array.isArray(card) ? card : []
+        name: trimmed, color, socketId: socket.id,
+        calledNums: [], graceTimer: null, roomId: room.id,
+        card: Array.isArray(card) ? card : []
       };
       socketMap[socket.id] = key;
-      if (!waitingLobby.includes(key)) waitingLobby.push(key);
-      socket.join('lobby');
+      if (!room.turnOrder.includes(key)) room.turnOrder.push(key);
+      socket.join(room.id);
 
-      evaluateMatchmaking();
-      console.log(`⏳ ${trimmed} enqueued in FIFO waitingLobby & processed`);
-
-      const assignedSess = sessions[key];
-      if (assignedSess && assignedSess.roomId && rooms[assignedSess.roomId]) {
-        room = rooms[assignedSess.roomId];
-      }
+      console.log(`🚪 ${trimmed} joined [${room.id}]`);
     }
 
     room.checkAndManageBot();
 
-    const inLobby = waitingLobby.includes(key);
-    const qPos = inLobby ? waitingLobby.indexOf(key) + 1 : 0;
+    // Auto-start 3-2-1 countdown if room reaches 5 real players
+    if (room.getRealPlayerCount() >= 5 && !room.gameStarted && !room.countdownActive) {
+      console.log(`🚀 [Auto-Start] 5th player joined [${room.id}] — Starting 3-2-1 countdown!`);
+      room.startLobbyCountdown();
+    }
 
     socket.emit('joined', {
       playerId: socket.id, playerName: trimmed, playerColor: color,
-      isSpectator: sessions[key] ? sessions[key].isSpectator : isSpectator,
-      isRejoin, sessionKey: key,
-      turnRemainingSeconds: room.getTurnRemainingSeconds(),
-      inWaitingLobby: inLobby,
-      queuePosition: qPos
+      isRejoin, sessionKey: key, roomId: room.id,
+      turnRemainingSeconds: room.getTurnRemainingSeconds()
     });
 
-    io.to(room.id).emit('player_joined', { name: trimmed, color, isSpectator: sessions[key] ? sessions[key].isSpectator : isSpectator, isRejoin });
+    io.to(room.id).emit('player_joined', { name: trimmed, color, isRejoin });
 
     room.broadcastState();
-    broadcastLobbyState();
     broadcastRoomsSummary();
-  });
-
-  socket.on('spectate_room', ({ roomId }) => {
-    const key = keyOf(socket.id);
-    const sess = key ? sessions[key] : null;
-    if (!sess) return;
-
-    if (!sess.isSpectator) {
-      socket.emit('error_msg', { message: '⚠ Active players cannot spectate other rooms!' });
-      return;
-    }
-
-    const target = rooms[roomId];
-    if (!target) return;
-
-    Object.keys(rooms).forEach(rid => {
-      if (rid !== sess.roomId) socket.leave(rid);
-    });
-    socket.join(target.id);
-    target.broadcastState();
   });
 
   socket.on('submit_number', ({ number }) => {
     const key = keyOf(socket.id);
     const sess = key ? sessions[key] : null;
-    if (!sess || sess.isSpectator) {
-      socket.emit('error_msg', { message: '👀 Spectator only!' }); return;
-    }
-    const room = rooms[sess.roomId] || getOrCreatePrimaryRoom();
+    if (!sess) return;
+
+    const room = rooms[sess.roomId];
+    if (!room) return;
+
     const num = parseInt(number, 10);
     if (isNaN(num) || num < 1 || num > 25) {
       socket.emit('error_msg', { message: '⚠ Number must be 1-25!' }); return;
@@ -788,13 +650,12 @@ io.on('connection', (socket) => {
     if (room.getCurrentTurnKey() === BOT_KEY) room.scheduleBotTurn();
   });
 
-
-
   socket.on('bingo_claimed', () => {
     const key = keyOf(socket.id);
     const sess = key ? sessions[key] : null;
-    if (!sess || sess.isSpectator) return;
-    const room = rooms[sess.roomId] || getOrCreatePrimaryRoom();
+    if (!sess) return;
+    const room = rooms[sess.roomId];
+    if (!room) return;
 
     const isPlayerValid = checkPlayerBingoOnServer(sess.card, room.selectedNumbers);
     if (!isPlayerValid) {
@@ -830,23 +691,20 @@ io.on('connection', (socket) => {
     const key = keyOf(socket.id);
     const sess = key ? sessions[key] : null;
     if (!sess) return;
-    const room = rooms[sess.roomId] || getOrCreatePrimaryRoom();
+    const room = rooms[sess.roomId];
+    if (!room) return;
 
     room.reset();
 
+    // Ensure all remaining players in session stay in room turn order
     Object.entries(sessions).forEach(([k, s]) => {
       if (k === BOT_KEY || s.roomId !== room.id) return;
-      s.isSpectator = false;
       if (!room.turnOrder.includes(k)) room.turnOrder.push(k);
     });
 
     room.checkAndManageBot();
     io.to(room.id).emit('game_reset', { by: sess.name });
     room.broadcastState();
-
-    if (waitingLobby.length > 0) {
-      evaluateMatchmaking();
-    }
     broadcastRoomsSummary();
   });
 
@@ -857,41 +715,41 @@ io.on('connection', (socket) => {
     const sess = sessions[key];
     if (!sess) { delete socketMap[socket.id]; return; }
 
-    const lobbyIdx = waitingLobby.indexOf(key);
-    if (lobbyIdx !== -1) {
-      waitingLobby.splice(lobbyIdx, 1);
-      broadcastLobbyState();
-      broadcastRoomsSummary();
-    }
+    const room = rooms[sess.roomId];
 
-    const room = rooms[sess.roomId] || getOrCreatePrimaryRoom();
+    if (room) {
+      console.log(`👋 ${sess.name} disconnected (${socket.id}) from [${room.id}]`);
+      io.to(room.id).emit('player_left', { name: sess.name, color: sess.color });
 
-    console.log(`👋 ${sess.name} disconnected (${socket.id}) from [${room.id}]`);
-    io.to(room.id).emit('player_left', { name: sess.name, color: sess.color });
+      sess.socketId = null;
+      delete socketMap[socket.id];
 
-    sess.socketId = null;
-    delete socketMap[socket.id];
-
-    if (!room.gameStarted && !room.countdownActive) {
-      room.checkAndManageBot();
-    }
-
-    const wasMyTurn = room.getCurrentTurnKey() === key;
-    if (wasMyTurn && room.gameStarted) {
-      room.clearTurnTimer();
-      room.cancelBotTurn();
-      console.log(`  [${room.id}] Turn paused — waiting ${GRACE_PERIOD_MS / 1000}s grace period for ${sess.name}`);
-    }
-
-    sess.graceTimer = setTimeout(() => {
-      const s = sessions[key];
-      if (s && !s.socketId) {
-        console.log(`  Grace expired for ${s.name} — removing from game`);
-        removePlayerFromGame(key, 'grace period expired (left game)');
+      if (!room.gameStarted && !room.countdownActive) {
+        removePlayerFromGame(key, 'disconnected from lobby');
+        return;
       }
-    }, GRACE_PERIOD_MS);
 
-    room.broadcastState();
+      const wasMyTurn = room.getCurrentTurnKey() === key;
+      if (wasMyTurn && room.gameStarted) {
+        room.clearTurnTimer();
+        room.cancelBotTurn();
+        console.log(`  [${room.id}] Turn paused — waiting ${GRACE_PERIOD_MS / 1000}s grace period for ${sess.name}`);
+      }
+
+      sess.graceTimer = setTimeout(() => {
+        const s = sessions[key];
+        if (s && !s.socketId) {
+          console.log(`  Grace expired for ${s.name} — removing from game`);
+          removePlayerFromGame(key, 'grace period expired (left game)');
+        }
+      }, GRACE_PERIOD_MS);
+
+      room.broadcastState();
+    } else {
+      delete socketMap[socket.id];
+      delete sessions[key];
+    }
+
     broadcastRoomsSummary();
   });
 });
