@@ -10,9 +10,8 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─────────────────────────────────────────────────────────────
-// turnOrder stores SESSION KEYS (stable). socketMap is the lookup.
-// On refresh: grace period of 8s. If they rejoin within 8s -> slot kept.
-// If they don't rejoin within 8s -> removed from game.
+// SESSIONS & STATE MANAGEMENT
+// turnOrder stores SESSION KEYS (stable). socketMap is lookup.
 // ─────────────────────────────────────────────────────────────
 
 const sessions = {};   // sessionKey → { name, color, isSpectator, socketId, calledNums, graceTimer, roomId }
@@ -63,6 +62,10 @@ class GameRoom {
     this.gameStarted = false;
     this.turnTimer = null;
     this.turnStartedAt = null;
+
+    this.countdownActive = false;
+    this.countdownTimer = null;
+    this.countdownSec = 3;
 
     this.botActive = false;
     this.botTurnTimer = null;
@@ -124,6 +127,9 @@ class GameRoom {
       else { const s = sessions[k]; turnPlayerId = s ? s.socketId : null; }
     }
 
+    const globalPlayerCount = Object.values(sessions).filter(s => s.socketId && s.socketId !== BOT_KEY).length;
+    const activeRoomsCount = Object.values(rooms).filter(r => r.gameStarted || r.countdownActive || r.getRealPlayerCount() > 0).length;
+
     io.to(this.id).emit('state_update', {
       selectedNumbers: this.selectedNumbers,
       players: all,
@@ -131,8 +137,12 @@ class GameRoom {
       activePlayerCount: actCount,
       currentTurnPlayerId: turnPlayerId,
       gameStarted: this.gameStarted,
+      countdownActive: this.countdownActive,
+      countdownSec: this.countdownSec,
       turnRemainingSeconds: this.getTurnRemainingSeconds(),
-      botActive: this.botActive
+      botActive: this.botActive,
+      globalPlayerCount: globalPlayerCount,
+      activeRoomsCount: activeRoomsCount
     });
   }
 
@@ -179,6 +189,38 @@ class GameRoom {
       }
       removePlayerFromGame(key, 'AFK timeout');
     }, TURN_TIMEOUT_MS);
+  }
+
+  // ── LOBBY AUTO-START COUNTDOWN (Triggered ONLY when 5th real player joins) ──
+  startLobbyCountdown() {
+    if (this.gameStarted || this.countdownActive) return;
+    this.countdownActive = true;
+    this.countdownSec = 3;
+
+    console.log(`⏱ [${this.id}] Auto-start countdown (5th player): 3...`);
+    io.to(this.id).emit('game_starting_countdown', { count: 3 });
+    this.broadcastState();
+
+    this.countdownTimer = setInterval(() => {
+      this.countdownSec--;
+      if (this.countdownSec > 0) {
+        console.log(`⏱ [${this.id}] Countdown: ${this.countdownSec}...`);
+        io.to(this.id).emit('game_starting_countdown', { count: this.countdownSec });
+        this.broadcastState();
+      } else {
+        clearInterval(this.countdownTimer);
+        this.countdownTimer = null;
+        this.countdownActive = false;
+        this.gameStarted = true;
+
+        console.log(`🚀 [${this.id}] Game COMMITTED & STARTED!`);
+        io.to(this.id).emit('game_starting_countdown', { count: 0 });
+        this.broadcastState();
+        if (this.getCurrentTurnKey() === BOT_KEY) this.scheduleBotTurn();
+        else this.startTurnTimer();
+        broadcastRoomsSummary();
+      }
+    }, 1000);
   }
 
   cancelBotBingoTimer() {
@@ -289,9 +331,9 @@ class GameRoom {
 
   checkAndManageBot() {
     const real = this.getRealPlayerCount();
-    if (real === 1 && !this.botActive) {
+    // Rule 1 & 3: Add bot ONLY when real === 1 AND in non-started/non-counting-down lobby
+    if (real === 1 && !this.botActive && !this.gameStarted && !this.countdownActive) {
       this.addBot();
-      if (this.getCurrentTurnKey() === BOT_KEY) this.scheduleBotTurn();
     } else if (real >= 2 && this.botActive) {
       this.removeBot();
     }
@@ -299,6 +341,8 @@ class GameRoom {
 
   reset() {
     this.clearTurnTimer();
+    if (this.countdownTimer) { clearInterval(this.countdownTimer); this.countdownTimer = null; }
+    this.countdownActive = false;
     this.cancelBotTurn();
     this.selectedNumbers = [];
     this.currentTurnIndex = 0;
@@ -318,12 +362,6 @@ function getOrCreatePrimaryRoom() {
   return rooms['room_1'];
 }
 
-function getRoomForSession(key) {
-  const sess = sessions[key];
-  if (!sess || !sess.roomId) return getOrCreatePrimaryRoom();
-  return rooms[sess.roomId] || getOrCreatePrimaryRoom();
-}
-
 // ── REMOVE PLAYER (grace expired or AFK kick) ──
 function removePlayerFromGame(key, reason) {
   const sess = sessions[key];
@@ -331,15 +369,10 @@ function removePlayerFromGame(key, reason) {
 
   const room = rooms[sess.roomId] || getOrCreatePrimaryRoom();
   const name = sess.name;
-  const color = sess.color;
 
-  // Cancel any pending grace timer
   if (sess.graceTimer) { clearTimeout(sess.graceTimer); sess.graceTimer = null; }
-
-  // Remove socket mapping
   if (sess.socketId && sess.socketId !== BOT_KEY) delete socketMap[sess.socketId];
 
-  // Remove from turnOrder
   const idx = room.turnOrder.indexOf(key);
   const wasCurrentTurn = idx !== -1 && (room.currentTurnIndex % Math.max(room.turnOrder.length, 1)) === idx;
 
@@ -354,34 +387,26 @@ function removePlayerFromGame(key, reason) {
 
   delete sessions[key];
 
-  io.to(room.id).emit('player_left', { name, color });
+  io.to(room.id).emit('player_left', { name, color: sess.color });
   console.log(`🗑 [${room.id}] ${name} removed (${reason})`);
 
   const real = room.getRealPlayerCount();
 
   if (real === 0) {
-    room.selectedNumbers.length = 0; room.currentTurnIndex = 0; room.gameStarted = false;
-    room.turnOrder.length = 0; if (room.botActive) room.removeBot();
+    room.reset();
     room.broadcastState();
     if (room.id !== 'room_1') {
       delete rooms[room.id];
       console.log(`🧹 [Cleanup] Room [${room.id}] deleted (empty)`);
-      broadcastRoomsSummary();
     }
+    broadcastRoomsSummary();
+    evaluateMatchmaking();
     return;
-  }
-
-  if (real === 1 && room.gameStarted) {
-    // Only 1 real player left mid-game — reset
-    room.selectedNumbers.length = 0; room.currentTurnIndex = 0; room.gameStarted = false;
-    Object.values(sessions).filter(s => s.roomId === room.id).forEach(s => { s.isSpectator = false; });
-    io.to(room.id).emit('game_reset', { by: `auto (${name} left)` });
-    room.checkAndManageBot(); room.broadcastState(); return;
   }
 
   room.checkAndManageBot();
 
-  if (wasCurrentTurn) {
+  if (wasCurrentTurn && room.gameStarted) {
     room.clearTurnTimer();
     if (room.turnOrder.length >= 2) {
       if (room.getCurrentTurnKey() === BOT_KEY) room.scheduleBotTurn();
@@ -390,19 +415,34 @@ function removePlayerFromGame(key, reason) {
   }
 
   room.broadcastState();
+  broadcastRoomsSummary();
+
+  // Evaluate matchmaking to fill any vacated seat if in lobby mode
+  if (!room.gameStarted && !room.countdownActive) {
+    evaluateMatchmaking();
+  }
 }
 
 function broadcastRoomsSummary() {
-  const summary = Object.values(rooms).map(r => ({
+  const globalPlayerCount = Object.values(sessions).filter(s => s.socketId && s.socketId !== BOT_KEY).length;
+  const activeRooms = Object.values(rooms).filter(r => r.gameStarted || r.countdownActive || r.getRealPlayerCount() > 0);
+
+  const summary = activeRooms.map(r => ({
     id: r.id,
     name: `Room ${r.id.replace('room_', '')}`,
-    status: r.gameStarted ? 'Running' : (r.selectedNumbers.length > 0 ? 'Finished' : 'Lobby'),
+    status: r.gameStarted ? 'Running' : (r.countdownActive ? 'Starting' : (r.selectedNumbers.length > 0 ? 'Finished' : 'Lobby')),
     playerCount: r.getRealPlayerCount() + (r.botActive ? 1 : 0),
     maxPlayers: 5,
     botActive: r.botActive,
     isFull: r.getRealPlayerCount() >= 5
   }));
-  io.emit('rooms_summary', { rooms: summary, waitingCount: waitingLobby.length });
+
+  io.emit('rooms_summary', {
+    rooms: summary,
+    waitingCount: waitingLobby.length,
+    globalPlayerCount: globalPlayerCount,
+    activeRoomsCount: activeRooms.length
+  });
 }
 
 function broadcastLobbyState() {
@@ -418,27 +458,27 @@ function broadcastLobbyState() {
   });
 }
 
+// ─────────────────────────────────────────────────────────────
+// COMPREHENSIVE STRICT FIFO MATCHMAKING ENGINE
+// Rules 1-6:
+// 1. Fill available seats in ALL existing lobby rooms first in FIFO order.
+// 2. Lock running/counting-down rooms (no entries).
+// 3. Reuse finished rooms when they reset.
+// 4. Create new rooms ONLY when waiting count exceeds total available lobby seats across all existing rooms (and not all rooms are running).
+// ─────────────────────────────────────────────────────────────
 function evaluateMatchmaking() {
-  // Find running room or primary room
-  const primary = getOrCreatePrimaryRoom();
-  const runningRoom = Object.values(rooms).find(r => r.gameStarted) || primary;
+  if (waitingLobby.length === 0) return;
 
-  const activeCount = runningRoom.getRealPlayerCount();
-  const availableSeats = Math.max(0, 5 - activeCount);
+  // Phase A: Fill available seats in ALL existing open Lobby rooms in deterministic order
+  const openLobbyRooms = Object.values(rooms).filter(r => !r.gameStarted && !r.countdownActive && r.getRealPlayerCount() < 5);
 
-  // Dynamic Rule: If waitingLobby.length > availableSeats, move front 5 into a new game
-  if (waitingLobby.length > availableSeats && waitingLobby.length > 0) {
-    // Find an idle/finished room to reuse OR create a new room
-    let targetRoom = Object.values(rooms).find(r => !r.gameStarted && r.turnOrder.length === 0);
-    if (!targetRoom) {
-      roomCounter++;
-      const newId = `room_${roomCounter}`;
-      targetRoom = new GameRoom(newId);
-      rooms[newId] = targetRoom;
-    }
+  for (const targetRoom of openLobbyRooms) {
+    if (waitingLobby.length === 0) break;
+    const availableSeats = Math.max(0, 5 - targetRoom.getRealPlayerCount());
+    if (availableSeats <= 0) continue;
 
-    // Extract up to 5 players from FRONT of FIFO queue
-    const batch = waitingLobby.splice(0, Math.min(5, waitingLobby.length));
+    // Dequeue front players from waitingLobby in strict FIFO order
+    const batch = waitingLobby.splice(0, Math.min(availableSeats, waitingLobby.length));
 
     batch.forEach(key => {
       const sess = sessions[key];
@@ -459,54 +499,75 @@ function evaluateMatchmaking() {
     });
 
     targetRoom.checkAndManageBot();
+
+    // Auto-start 3-2-1 countdown if room reaches 5 real players
+    if (targetRoom.getRealPlayerCount() >= 5 && !targetRoom.gameStarted && !targetRoom.countdownActive) {
+      console.log(`🚀 [Auto-Start] 5th player joined [${targetRoom.id}] — Starting 3-2-1 countdown!`);
+      targetRoom.startLobbyCountdown();
+    }
+
     targetRoom.broadcastState();
-    broadcastLobbyState();
-    broadcastRoomsSummary();
-    console.log(`🚀 [Matchmaking] Created/Reused [${targetRoom.id}] with ${batch.length} players from FIFO queue`);
+    console.log(`🚀 [Matchmaking] Filled ${batch.length} player(s) into existing lobby [${targetRoom.id}] in FIFO order`);
+  }
+
+  broadcastLobbyState();
+  broadcastRoomsSummary();
+
+  // Phase B: Handle excess waiting players after ALL existing lobby seats are filled
+  if (waitingLobby.length > 0) {
+    const runningRoomFutureSeats = Object.values(rooms)
+      .filter(r => r.gameStarted || r.countdownActive)
+      .reduce((sum, r) => sum + Math.max(0, 5 - r.getRealPlayerCount()), 0);
+
+    if (waitingLobby.length > runningRoomFutureSeats) {
+      // Waiting queue exceeds what running rooms can absorb upon finishing.
+      // Create a new room for the excess waiting players.
+      roomCounter++;
+      const newId = `room_${roomCounter}`;
+      const newRoom = new GameRoom(newId);
+      rooms[newId] = newRoom;
+
+      const batch = waitingLobby.splice(0, Math.min(5, waitingLobby.length));
+      batch.forEach(key => {
+        const sess = sessions[key];
+        if (sess) {
+          sess.roomId = newRoom.id;
+          sess.isSpectator = false;
+          if (!newRoom.turnOrder.includes(key)) newRoom.turnOrder.push(key);
+          const sock = getSocket(key);
+          if (sock) {
+            sock.leave('lobby');
+            sock.join(newRoom.id);
+            sock.emit('game_ready', {
+              roomId: newRoom.id,
+              roomName: `Room ${newRoom.id.replace('room_', '')}`
+            });
+          }
+        }
+      });
+
+      newRoom.checkAndManageBot();
+
+      if (newRoom.getRealPlayerCount() >= 5 && !newRoom.gameStarted && !newRoom.countdownActive) {
+        newRoom.startLobbyCountdown();
+      }
+
+      newRoom.broadcastState();
+      broadcastLobbyState();
+      broadcastRoomsSummary();
+      console.log(`🚀 [Matchmaking] Created new room [${newRoom.id}] for ${batch.length} excess waiting players`);
+
+      if (waitingLobby.length > 0) {
+        evaluateMatchmaking();
+      }
+    }
   }
 }
 
-function reuseRoomWithWaitingPlayers(room) {
-  if (waitingLobby.length === 0) return false;
-
-  room.reset();
-  const batch = waitingLobby.splice(0, Math.min(5, waitingLobby.length));
-
-  batch.forEach(key => {
-    const sess = sessions[key];
-    if (sess) {
-      sess.roomId = room.id;
-      sess.isSpectator = false;
-      if (!room.turnOrder.includes(key)) room.turnOrder.push(key);
-      const sock = getSocket(key);
-      if (sock) {
-        sock.leave('lobby');
-        sock.join(room.id);
-        sock.emit('game_ready', {
-          roomId: room.id,
-          roomName: `Room ${room.id.replace('room_', '')}`
-        });
-      }
-    }
-  });
-
-  room.checkAndManageBot();
-  room.broadcastState();
-  broadcastLobbyState();
-  broadcastRoomsSummary();
-  console.log(`🔄 [Room Reuse] Reused [${room.id}] for ${batch.length} FIFO waiting players`);
-  return true;
-}
-
-// ── TURN TIMER HELPER ──
-function clearTurnTimer() {}
-function startTurnTimer() {}
-
-// ── CONNECTION ──
+// ── CONNECTION & EVENT HANDLING ──
 
 io.on('connection', (socket) => {
 
-  // Emit current room summary to newly connected socket immediately
   broadcastRoomsSummary();
 
   socket.on('join', ({ name, sessionKey }) => {
@@ -517,67 +578,76 @@ io.on('connection', (socket) => {
     let room;
 
     if (existing && key !== BOT_KEY) {
-      // ── REJOIN ──
-      color = existing.color;
-      isSpectator = existing.isSpectator;
-      isRejoin = true;
-      room = rooms[existing.roomId] || getOrCreatePrimaryRoom();
+      room = rooms[existing.roomId];
 
-      // Cancel grace timer — they made it back in time
-      if (existing.graceTimer) {
-        clearTimeout(existing.graceTimer);
-        existing.graceTimer = null;
-        console.log(`  ↳ Grace timer cancelled — ${trimmed} rejoined in time`);
-      }
+      if (room && (room.gameStarted || room.countdownActive || room.turnOrder.includes(key))) {
+        // Rejoin active room (Rule 4)
+        color = existing.color;
+        isSpectator = existing.isSpectator;
+        isRejoin = true;
 
-      // Unmap old socket
-      if (existing.socketId && existing.socketId !== socket.id) {
-        delete socketMap[existing.socketId];
-      }
-      existing.socketId = socket.id;
-      socketMap[socket.id] = key;
+        if (existing.graceTimer) {
+          clearTimeout(existing.graceTimer);
+          existing.graceTimer = null;
+          console.log(`  ↳ Grace timer cancelled — ${trimmed} rejoined in time`);
+        }
 
-      socket.join(room.id);
+        if (existing.socketId && existing.socketId !== socket.id) {
+          delete socketMap[existing.socketId];
+        }
+        existing.socketId = socket.id;
+        socketMap[socket.id] = key;
 
-      console.log(`🔄 ${trimmed} REJOINED [${room.id}] — slot [${room.turnOrder.indexOf(key)}] idx=${room.currentTurnIndex} cur=${room.getCurrentTurnKey()}`);
+        socket.join(room.id);
+        console.log(`🔄 ${trimmed} REJOINED [${room.id}] — turn index=${room.currentTurnIndex}`);
 
-      if (room.getCurrentTurnKey() === key && !room.turnTimer && room.gameStarted) {
-        console.log(`  ↳ Resuming their turn timer`);
-        room.startTurnTimer();
-      }
+        if (room.getCurrentTurnKey() === key && !room.turnTimer && room.gameStarted) {
+          room.startTurnTimer();
+        }
 
-    } else {
-      // ── NEW PLAYER ──
-      color = getNextColor();
-      const primary = getOrCreatePrimaryRoom();
-
-      if (primary.gameStarted || primary.getRealPlayerCount() >= 5) {
-        // Game running or primary full — enter FIFO waitingLobby
+      } else {
+        // Return after game ended (Rule 5): Clear old session, route to FIFO queue
+        if (existing.graceTimer) { clearTimeout(existing.graceTimer); existing.graceTimer = null; }
+        delete sessions[key];
+        color = getNextColor();
         isSpectator = true;
-        room = primary;
+
         sessions[key] = {
           name: trimmed, color, isSpectator: true,
           socketId: socket.id, calledNums: [], graceTimer: null,
-          roomId: room.id
+          roomId: 'lobby'
         };
         socketMap[socket.id] = key;
         if (!waitingLobby.includes(key)) waitingLobby.push(key);
         socket.join('lobby');
-        socket.join(room.id); // Join room to spectate
         evaluateMatchmaking();
-        console.log(`⏳ ${trimmed} added to FIFO waitingLobby (pos ${waitingLobby.length})`);
-      } else {
-        isSpectator = false;
-        room = primary;
-        sessions[key] = {
-          name: trimmed, color, isSpectator: false,
-          socketId: socket.id, calledNums: [], graceTimer: null,
-          roomId: room.id
-        };
-        socketMap[socket.id] = key;
-        socket.join(room.id);
-        if (!room.turnOrder.includes(key)) room.turnOrder.push(key);
-        console.log(`✅ ${trimmed} joined [${room.id}] turnOrder:`, room.turnOrder);
+        console.log(`⏳ ${trimmed} returned after game ended — routed to FIFO waitingLobby (pos ${waitingLobby.length})`);
+        
+        const assignedSess = sessions[key];
+        room = rooms[assignedSess ? assignedSess.roomId : null] || getOrCreatePrimaryRoom();
+      }
+
+    } else {
+      // ── NEW PLAYER ──
+      // Enqueue in strict FIFO queue and process matchmaking
+      color = getNextColor();
+      const primary = getOrCreatePrimaryRoom();
+      room = primary;
+      sessions[key] = {
+        name: trimmed, color, isSpectator: true,
+        socketId: socket.id, calledNums: [], graceTimer: null,
+        roomId: room.id
+      };
+      socketMap[socket.id] = key;
+      if (!waitingLobby.includes(key)) waitingLobby.push(key);
+      socket.join('lobby');
+
+      evaluateMatchmaking();
+      console.log(`⏳ ${trimmed} enqueued in FIFO waitingLobby & processed`);
+
+      const assignedSess = sessions[key];
+      if (assignedSess && assignedSess.roomId && rooms[assignedSess.roomId]) {
+        room = rooms[assignedSess.roomId];
       }
     }
 
@@ -588,17 +658,14 @@ io.on('connection', (socket) => {
 
     socket.emit('joined', {
       playerId: socket.id, playerName: trimmed, playerColor: color,
-      isSpectator, isRejoin, sessionKey: key,
+      isSpectator: sessions[key] ? sessions[key].isSpectator : isSpectator,
+      isRejoin, sessionKey: key,
       turnRemainingSeconds: room.getTurnRemainingSeconds(),
       inWaitingLobby: inLobby,
       queuePosition: qPos
     });
 
-    io.to(room.id).emit('player_joined', { name: trimmed, color, isSpectator, isRejoin });
-
-    const curKey = room.getCurrentTurnKey();
-    if (room.gameStarted && curKey && curKey !== BOT_KEY && !room.turnTimer) room.startTurnTimer();
-    if (room.botActive && curKey === BOT_KEY && !room.botTurnTimer) room.scheduleBotTurn();
+    io.to(room.id).emit('player_joined', { name: trimmed, color, isSpectator: sessions[key] ? sessions[key].isSpectator : isSpectator, isRejoin });
 
     room.broadcastState();
     broadcastLobbyState();
@@ -609,6 +676,12 @@ io.on('connection', (socket) => {
     const key = keyOf(socket.id);
     const sess = key ? sessions[key] : null;
     if (!sess) return;
+
+    if (!sess.isSpectator) {
+      socket.emit('error_msg', { message: '⚠ Active players cannot spectate other rooms!' });
+      return;
+    }
+
     const target = rooms[roomId];
     if (!target) return;
 
@@ -639,7 +712,12 @@ io.on('connection', (socket) => {
     if (room.buildPlayerList().length < 2) {
       socket.emit('error_msg', { message: '⏳ Need another player!' }); return;
     }
-    if (!room.gameStarted) room.gameStarted = true;
+
+    // First click game start for 2-4 player lobbies
+    if (!room.gameStarted) {
+      room.gameStarted = true;
+      console.log(`🎮 Game automatically started in [${room.id}] by ${sess.name} calling number ${num}`);
+    }
 
     room.selectedNumbers.push({
       number: num, playerName: sess.name,
@@ -661,7 +739,6 @@ io.on('connection', (socket) => {
 
     room.broadcastState();
     if (room.getCurrentTurnKey() === BOT_KEY) room.scheduleBotTurn();
-    console.log(`  [${room.id}] [${sess.name} called ${num}] next: ${room.getCurrentTurnKey()} idx=${room.currentTurnIndex}`);
   });
 
   socket.on('bingo_claimed', ({ winners }) => {
@@ -684,23 +761,20 @@ io.on('connection', (socket) => {
     if (!sess) return;
     const room = rooms[sess.roomId] || getOrCreatePrimaryRoom();
 
+    room.reset();
+
+    Object.entries(sessions).forEach(([k, s]) => {
+      if (k === BOT_KEY || s.roomId !== room.id) return;
+      s.isSpectator = false;
+      if (!room.turnOrder.includes(k)) room.turnOrder.push(k);
+    });
+
+    room.checkAndManageBot();
+    io.to(room.id).emit('game_reset', { by: sess.name });
+    room.broadcastState();
+
     if (waitingLobby.length > 0) {
-      reuseRoomWithWaitingPlayers(room);
-    } else {
-      room.clearTurnTimer(); room.cancelBotTurn();
-      room.selectedNumbers.length = 0; room.currentTurnIndex = 0; room.gameStarted = false;
-
-      Object.entries(sessions).forEach(([k, s]) => {
-        if (k === BOT_KEY || s.roomId !== room.id) return;
-        s.isSpectator = false;
-        if (!room.turnOrder.includes(k)) room.turnOrder.push(k);
-      });
-
-      if (room.botActive) room.removeBot();
-      room.checkAndManageBot();
-
-      io.to(room.id).emit('game_reset', { by: sess.name });
-      room.broadcastState();
+      evaluateMatchmaking();
     }
     broadcastRoomsSummary();
   });
@@ -727,8 +801,12 @@ io.on('connection', (socket) => {
     sess.socketId = null;
     delete socketMap[socket.id];
 
+    if (!room.gameStarted && !room.countdownActive) {
+      room.checkAndManageBot();
+    }
+
     const wasMyTurn = room.getCurrentTurnKey() === key;
-    if (wasMyTurn) {
+    if (wasMyTurn && room.gameStarted) {
       room.clearTurnTimer();
       room.cancelBotTurn();
       console.log(`  [${room.id}] Turn paused — waiting ${GRACE_PERIOD_MS / 1000}s grace period for ${sess.name}`);
@@ -748,14 +826,14 @@ io.on('connection', (socket) => {
 });
 
 app.get('/robots.txt', (req, res) => {
-  res.setHeader('Content-Type', 'text/plain')
-  res.sendFile(path.join(__dirname, 'public', 'robots.txt'))
-})
+  res.setHeader('Content-Type', 'text/plain');
+  res.sendFile(path.join(__dirname, 'public', 'robots.txt'));
+});
 
 app.get('/sitemap.xml', (req, res) => {
-  res.setHeader('Content-Type', 'application/xml')
-  res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'))
-})
+  res.setHeader('Content-Type', 'application/xml');
+  res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
+});
 
 const PORT = process.env.PORT || 9000;
 server.listen(PORT, () => {
